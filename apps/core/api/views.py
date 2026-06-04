@@ -1,7 +1,7 @@
 """DRF API views for the core app."""
 
-from drf_spectacular.utils import extend_schema, inline_serializer
-from rest_framework import serializers, status
+from drf_spectacular.utils import extend_schema
+from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
