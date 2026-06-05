@@ -1,5 +1,7 @@
 """Models for events, teams, memberships, and matches."""
 
+from typing import cast
+
 from django.db import models
 
 from apps.players.models import Player
@@ -13,7 +15,7 @@ class Event(models.Model):
     location = models.CharField(max_length=100)
 
     def __str__(self) -> str:
-        return self.name
+        return str(self.name)
 
 
 class EventParticipation(models.Model):
@@ -44,27 +46,41 @@ class TeamMembership(models.Model):
     participant = models.ForeignKey(Player, on_delete=models.CASCADE)
 
     def __str__(self) -> str:
-        return f"{self.participant.name} - {self.team.team_name}"
+        team_cast = cast(EventTeam, self.team)
+        return f"{self.participant.name} - {team_cast.team_name}"
+
+
+class MatchStatus(models.IntegerChoices):
+    """Choices for the status of a match."""
+
+    SCHEDULED = 0, "Scheduled"  # pyright: ignore[reportAssignmentType]
+    ONGOING = 1, "Ongoing"  # pyright: ignore[reportAssignmentType]
+    COMPLETED = 2, "Completed"  # pyright: ignore[reportAssignmentType]
 
 
 class EventMatch(models.Model):
     """Represent a match between two event teams."""
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    team1 = models.ForeignKey(
+    team_home = models.ForeignKey(
         EventTeam, related_name="team1_matches", on_delete=models.CASCADE
     )
-    team2 = models.ForeignKey(
+    team_away = models.ForeignKey(
         EventTeam, related_name="team2_matches", on_delete=models.CASCADE
     )
-    score_team1 = models.IntegerField()
-    score_team2 = models.IntegerField()
+    score_team_home = models.IntegerField()
+    score_team_away = models.IntegerField()
     status = models.IntegerField(
-        choices=[(0, "Scheduled"), (1, "Ongoing"), (2, "Completed")], default=0
+        choices=MatchStatus.choices,
+        default=MatchStatus.SCHEDULED,  # pyright: ignore[ reportArgumentType]
     )
 
     def __str__(self) -> str:
+        home_cast = cast(EventTeam, self.team_home)
+        away_cast = cast(EventTeam, self.team_away)
+        event_teams = cast(Event, self.event)
+
         return (
-            f"{self.team1.team_name} vs {self.team2.team_name} - "
-            f"{self.event.name}"
+            f"{home_cast.team_name} vs {away_cast.team_name} - "
+            f"{event_teams.name}"
         )

@@ -13,7 +13,7 @@ class Player(models.Model):
     number = models.IntegerField()
 
     def __str__(self) -> str:
-        return self.name
+        return str(self.name)
 
 
 class Role(models.Model):
@@ -22,7 +22,7 @@ class Role(models.Model):
     name = models.CharField(max_length=100)
 
     def __str__(self) -> str:
-        return self.name
+        return str(self.name)
 
 
 class PlayerRole(models.Model):
