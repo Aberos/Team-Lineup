@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "apps.core",
     "apps.players",
+    "apps.events",
 ]
 
 MIDDLEWARE = [
