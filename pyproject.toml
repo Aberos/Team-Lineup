@@ -16,13 +16,16 @@ dependencies = [
     "tzdata==2026.2",
     "djangorestframework",
     "drf-spectacular",
-    "dj-db-conn-pool",
+    "django-db-connection-pool",
     "psycopg2-binary",
     "django-filter",
+    "djangorestframework-simplejwt",
+    "python-dotenv",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "debugpy>=1.8,<2",
     "pytest",
     "pytest-django",
 ]

@@ -95,6 +95,16 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {"default": _parse_db_url(os.getenv("DATABASE_URL"))}
+if os.getenv("POSTGRES_DB"):
+    DATABASES["default"] = {
+        "ENGINE": "dj_db_conn_pool.backends.postgresql",
+        "NAME": os.environ["POSTGRES_DB"],
+        "USER": os.environ["POSTGRES_USER"],
+        "PASSWORD": os.environ["POSTGRES_PASSWORD"],
+        "HOST": os.getenv("POSTGRES_HOST", "localhost"),
+        "PORT": os.getenv("POSTGRES_PORT", "5432"),
+        "POOL_OPTIONS": _POOL_OPTIONS,
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
