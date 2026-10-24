@@ -1,5 +1,6 @@
 """DRF API views for the core app."""
 
+from django.contrib.auth.models import User
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny
@@ -40,10 +41,10 @@ class CoreLoginView(APIView):
         if result is None:
             return Response(None, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = CoreLoginResponseSerializer(data=result)
-        serializer.is_valid(raise_exception=True)
+        response_serializer = CoreLoginResponseSerializer(data=result)
+        response_serializer.is_valid(raise_exception=True)
 
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
 @extend_schema(description="Validate a token.", responses={200: None})
@@ -58,11 +59,10 @@ class CoreValidateTokenView(APIView):
 
     def get(self, request: Request) -> Response:
         auth_header = request.headers.get("Authorization")
-        token = self._extract_token_from_header(auth_header)
-
-        if auth_header is None or token is None:
+        if auth_header is None:
             return Response(None, status=status.HTTP_401_UNAUTHORIZED)
 
+        token = self._extract_token_from_header(auth_header)
         is_valid = CoreService.validate_token(token)
         if not is_valid:
             return Response(None, status=status.HTTP_401_UNAUTHORIZED)
@@ -98,6 +98,9 @@ class CoreAuthenticatedUserChangePasswordView(APIView):
                 serializer.errors, status=status.HTTP_400_BAD_REQUEST
             )
 
+        if not isinstance(request.user, User):
+            return Response(None, status=status.HTTP_401_UNAUTHORIZED)
+
         password_changed = CoreService.change_password(
             user=request.user,
             current_password=serializer.validated_data["current_password"],
@@ -125,6 +128,9 @@ class CoreAuthenticatedUserChangeNameView(APIView):
             return Response(
                 serializer.errors, status=status.HTTP_400_BAD_REQUEST
             )
+
+        if not isinstance(request.user, User):
+            return Response(None, status=status.HTTP_401_UNAUTHORIZED)
 
         CoreService.change_name(
             user=request.user,

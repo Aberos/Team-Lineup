@@ -1,9 +1,9 @@
 """Core service."""
 
-from typing import Any
+from typing import Any, cast
 
 from django.contrib.auth import authenticate
-from django.contrib.auth.models import AbstractBaseUser
+from django.contrib.auth.models import AbstractBaseUser, User
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken, UntypedToken
 
@@ -12,7 +12,6 @@ class CoreService:
     @staticmethod
     def login(username: str, password: str) -> Any:
         """Login user and return access token."""
-
         user = authenticate(username=username, password=password)
         if user is None:
             return None
@@ -24,7 +23,7 @@ class CoreService:
     def validate_token(token: str) -> bool:
         """Validate token."""
         try:
-            UntypedToken(token)
+            UntypedToken(cast(Any, token))
             return True
         except (InvalidToken, TokenError):
             return False
@@ -45,7 +44,7 @@ class CoreService:
 
     @staticmethod
     def change_name(
-        user: AbstractBaseUser,
+        user: User,
         first_name: str,
         last_name: str,
     ) -> bool:

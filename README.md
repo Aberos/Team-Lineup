@@ -77,3 +77,55 @@ docker compose restart app
 ```
 
 `BIND_HOST=127.0.0.1` restringe o acesso à máquina local. O valor `0.0.0.0` publica as portas HTTP e de debug em todas as interfaces de rede.
+
+## Pre-commit
+
+Os hooks executam Black, Ruff e Mypy com as configurações do `pyproject.toml`.
+Black e Ruff podem alterar os arquivos; revise as alterações antes do commit.
+
+Construa a imagem e valide a configuração:
+
+```sh
+docker compose build app
+docker compose run --rm --no-deps app pre-commit validate-config
+```
+
+Execute os hooks em todos os arquivos versionados, sem iniciar o banco:
+
+```sh
+docker compose run --rm --no-deps app pre-commit run --all-files
+```
+
+Para executar apenas um hook, informe `black`, `ruff` ou `mypy`:
+
+```sh
+docker compose run --rm --no-deps app pre-commit run mypy --all-files
+```
+
+A primeira execução baixa os repositórios e instala as dependências dos hooks.
+
+### Execução sem verificação SSL
+
+Para executar com a verificação SSL desativada apenas no Git:
+
+```sh
+docker compose run --rm --no-deps -e GIT_SSL_NO_VERIFY=true app pre-commit run --all-files
+```
+
+Se o pip também apresentar erro de certificado ao instalar as dependências dos
+hooks, adicione `PIP_TRUSTED_HOST` para os hosts do PyPI:
+
+```sh
+docker compose run --rm --no-deps -e GIT_SSL_NO_VERIFY=true -e PIP_TRUSTED_HOST="pypi.org files.pythonhosted.org" app pre-commit run --all-files
+```
+
+Essas opções valem apenas para o comando executado. Para uso regular, configure
+o certificado da rede.
+
+A execução via Docker é manual. Para executar os hooks automaticamente no
+`git commit` feito no host, instale o pre-commit no ambiente Python local:
+
+```sh
+python -m pip install ".[dev]"
+pre-commit install
+```

@@ -22,7 +22,7 @@ _POOL_OPTIONS = {
 
 
 def _parse_db_url(url: Any) -> dict:
-    """Parse a database URL and return a Django database configuration dictionary."""
+    """Parse a database URL into Django database settings."""
     if not url:
         return {
             "ENGINE": "django.db.backends.sqlite3",
@@ -108,16 +108,27 @@ if os.getenv("POSTGRES_DB"):
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "UserAttributeSimilarityValidator"
+        ),
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation." "MinimumLengthValidator"
+        ),
     },
     {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "CommonPasswordValidator"
+        ),
     },
     {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "NumericPasswordValidator"
+        ),
     },
 ]
 
