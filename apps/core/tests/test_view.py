@@ -239,13 +239,13 @@ class CoreAuthenticatedUserChangePasswordView(TestCase):
             "new_password": "456",
         }
         response_change_password = self.client.patch(
-            f"{_BASE}/auth/change-password",
+            f"{_BASE}/auth/change-password/",
             json.dumps(request_change_password_body),
             content_type="application/json",
             HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
-        self.assertEqual(response_change_password.status_code, 200)
+        self.assertEqual(response_change_password.status_code, 204)
 
         request_login_body = {"username": "testuser", "password": "456"}
         response_login = self.client.post(
@@ -263,15 +263,15 @@ class CoreAuthenticatedUserChangePasswordView(TestCase):
             "new_password": "456",
         }
         response_change_password = self.client.patch(
-            f"{_BASE}/auth/change-password",
+            f"{_BASE}/auth/change-password/",
             json.dumps(request_change_password_body),
             content_type="application/json",
         )
 
         self.assertEqual(response_change_password.status_code, 401)
 
-    def test_change_password_invalid_current_returns_401(self) -> None:
-        """Test change password with invalid current password returns 401."""
+    def test_change_password_invalid_current_returns_400(self) -> None:
+        """Test change password with invalid current password returns 400."""
         get_user_model().objects.create_user(
             username="testuser", password="testpass"
         )
@@ -291,13 +291,13 @@ class CoreAuthenticatedUserChangePasswordView(TestCase):
             "new_password": "456",
         }
         response_change_password = self.client.patch(
-            f"{_BASE}/auth/change-password",
+            f"{_BASE}/auth/change-password/",
             json.dumps(request_change_password_body),
             content_type="application/json",
             HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
-        self.assertEqual(response_change_password.status_code, 401)
+        self.assertEqual(response_change_password.status_code, 400)
 
     def test_change_password_empty_fields_returns_400(self) -> None:
         """Test change password with empty password fields returns 400."""
@@ -323,7 +323,7 @@ class CoreAuthenticatedUserChangePasswordView(TestCase):
         for request_body in request_bodies:
             with self.subTest(request_body=request_body):
                 response_change_password = self.client.patch(
-                    f"{_BASE}/auth/change-password",
+                    f"{_BASE}/auth/change-password/",
                     json.dumps(request_body),
                     content_type="application/json",
                     HTTP_AUTHORIZATION=f"Bearer {token}",
@@ -362,13 +362,14 @@ class CoreAuthenticatedUserChangeNameView(TestCase):
             "last_name": "Doe",
         }
         response_change_name = self.client.patch(
-            f"{_BASE}/auth/change-name",
+            f"{_BASE}/auth/change-name/",
             json.dumps(request_change_name_body),
             content_type="application/json",
             HTTP_AUTHORIZATION=f"Bearer {token}",
         )
 
         self.assertEqual(response_change_name.status_code, 200)
+        self.assertEqual(response_change_name.json()["first_name"], "Michael")
         user.refresh_from_db()
         self.assertEqual(user.first_name, "Michael")
         self.assertEqual(user.last_name, "Doe")
@@ -380,7 +381,7 @@ class CoreAuthenticatedUserChangeNameView(TestCase):
             "last_name": "Doe",
         }
         response_change_name = self.client.patch(
-            f"{_BASE}/auth/change-name",
+            f"{_BASE}/auth/change-name/",
             json.dumps(request_change_name_body),
             content_type="application/json",
         )
@@ -414,7 +415,7 @@ class CoreAuthenticatedUserChangeNameView(TestCase):
         for request_body in request_bodies:
             with self.subTest(request_body=request_body):
                 response_change_name = self.client.patch(
-                    f"{_BASE}/auth/change-name",
+                    f"{_BASE}/auth/change-name/",
                     json.dumps(request_body),
                     content_type="application/json",
                     HTTP_AUTHORIZATION=f"Bearer {token}",
@@ -449,7 +450,7 @@ class CoreAuthenticatedUserChangeNameView(TestCase):
         for request_body in request_bodies:
             with self.subTest(request_body=request_body):
                 response_change_name = self.client.patch(
-                    f"{_BASE}/auth/change-name",
+                    f"{_BASE}/auth/change-name/",
                     json.dumps(request_body),
                     content_type="application/json",
                     HTTP_AUTHORIZATION=f"Bearer {token}",

@@ -1,55 +1,71 @@
-"""Core service."""
-
-from typing import Any, cast
+"""Services for authentication and authenticated user data."""
 
 from django.contrib.auth import authenticate
-from django.contrib.auth.models import AbstractBaseUser, User
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from rest_framework_simplejwt.tokens import RefreshToken, UntypedToken
+from django.contrib.auth.models import User
+from rest_framework_simplejwt.tokens import AccessToken
+
+from apps.core.exceptions import InvalidCredentialsError
+from apps.core.repository import UserRepository
 
 
 class CoreService:
+    """Business rules for authentication and user data."""
+
     @staticmethod
-    def login(username: str, password: str) -> Any:
-        """Login user and return access token."""
+    def login(username: str, password: str) -> str:
+        """Authenticate the user and issue an access token.
+
+        Args:
+            username: Username of the account.
+            password: Password of the account.
+
+        Returns:
+            The encoded JWT access token.
+
+        Raises:
+            InvalidCredentialsError: If the credentials are invalid or the
+                user is inactive.
+        """
         user = authenticate(username=username, password=password)
         if user is None:
-            return None
-
-        refresh = RefreshToken.for_user(user)
-        return {"user": user, "token": str(refresh.access_token)}
-
-    @staticmethod
-    def validate_token(token: str) -> bool:
-        """Validate token."""
-        try:
-            UntypedToken(cast(Any, token))
-            return True
-        except (InvalidToken, TokenError):
-            return False
+            raise InvalidCredentialsError
+        return str(AccessToken.for_user(user))
 
     @staticmethod
     def change_password(
-        user: AbstractBaseUser,
+        user: User,
         current_password: str,
         new_password: str,
-    ) -> bool:
-        """Change the authenticated user password."""
-        if not user.check_password(current_password):
-            return False
+    ) -> User:
+        """Replace the user password after checking the current one.
 
-        user.set_password(new_password)
-        user.save(update_fields=["password"])
-        return True
+        Args:
+            user: Authenticated user.
+            current_password: Password currently in use.
+            new_password: Password that replaces the current one.
+
+        Returns:
+            The updated user.
+
+        Raises:
+            InvalidCredentialsError: If the current password is wrong.
+        """
+        if not user.check_password(current_password):
+            raise InvalidCredentialsError
+        return UserRepository.update_password(user, raw_password=new_password)
 
     @staticmethod
-    def change_name(
-        user: User,
-        first_name: str,
-        last_name: str,
-    ) -> bool:
-        """Change the authenticated user name."""
-        user.first_name = first_name
-        user.last_name = last_name
-        user.save(update_fields=["first_name", "last_name"])
-        return True
+    def change_name(user: User, first_name: str, last_name: str) -> User:
+        """Change the first and last names of the user.
+
+        Args:
+            user: Authenticated user.
+            first_name: New first name.
+            last_name: New last name.
+
+        Returns:
+            The updated user.
+        """
+        return UserRepository.update_name(
+            user, first_name=first_name, last_name=last_name
+        )

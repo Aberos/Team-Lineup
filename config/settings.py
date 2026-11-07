@@ -162,8 +162,8 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Minha API",
-    "DESCRIPTION": "Documentação da API",
+    "TITLE": "TeamLineup API",
+    "DESCRIPTION": "API REST do TeamLineup.",
     "VERSION": "1.0.0",
     "SECURITY": [{"BearerAuth": []}],
 }

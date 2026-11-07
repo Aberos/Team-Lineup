@@ -1,5 +1,7 @@
 """DRF API views for the core app."""
 
+from typing import cast
+
 from django.contrib.auth.models import User
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
@@ -8,6 +10,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.exceptions import InvalidCredentialsError
 from apps.core.serializers import (
     CoreChangeNameSerializer,
     CoreChangePasswordSerializer,
@@ -17,125 +20,114 @@ from apps.core.serializers import (
 )
 from apps.core.service import CoreService
 
+_AUTH_TAG = "auth"
 
-@extend_schema(
-    request=CoreLoginSerializer,
-    responses={200: CoreLoginSerializer},
-)
+
 class CoreLoginView(APIView):
-    """Core API view."""
+    """Authenticate a user and issue a JWT access token."""
 
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        tags=[_AUTH_TAG],
+        description="Authenticate with username and password.",
+        request=CoreLoginSerializer,
+        responses={200: CoreLoginResponseSerializer, 400: None},
+    )
     def post(self, request: Request) -> Response:
+        """Return an access token for valid credentials."""
         serializer = CoreLoginSerializer(data=request.data)
-
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=400)
-
-        username = serializer.validated_data["username"]
-        password = serializer.validated_data["password"]
-
-        result = CoreService.login(username=username, password=password)
-
-        if result is None:
-            return Response(None, status=status.HTTP_400_BAD_REQUEST)
-
-        response_serializer = CoreLoginResponseSerializer(data=result)
-        response_serializer.is_valid(raise_exception=True)
-
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
-
-
-@extend_schema(description="Validate a token.", responses={200: None})
-class CoreValidateTokenView(APIView):
-    """Core API view for validating tokens."""
-
-    def _extract_token_from_header(self, auth_header: str) -> str:
-        """Extract token from Authorization header."""
-        if auth_header.startswith("Bearer "):
-            return auth_header[7:]
-        return auth_header
-
-    def get(self, request: Request) -> Response:
-        auth_header = request.headers.get("Authorization")
-        if auth_header is None:
-            return Response(None, status=status.HTTP_401_UNAUTHORIZED)
-
-        token = self._extract_token_from_header(auth_header)
-        is_valid = CoreService.validate_token(token)
-        if not is_valid:
-            return Response(None, status=status.HTTP_401_UNAUTHORIZED)
-
-        return Response(None, status=status.HTTP_200_OK)
-
-
-@extend_schema(
-    description="Get user authenticated info.",
-    responses={200: CoreUserInfoSerializer},
-)
-class CoreAuthenticatedUserInfoView(APIView):
-    """Core API view for getting user authenticated info."""
-
-    def get(self, request: Request) -> Response:
-        serializer = CoreUserInfoSerializer(request.user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-@extend_schema(
-    description="Change user authenticated password.",
-    request=CoreChangePasswordSerializer,
-    responses={200: None},
-)
-class CoreAuthenticatedUserChangePasswordView(APIView):
-    """Core API view for change user authenticated password."""
-
-    def patch(self, request: Request) -> Response:
-        serializer = CoreChangePasswordSerializer(data=request.data)
-
-        if not serializer.is_valid():
-            return Response(
-                serializer.errors, status=status.HTTP_400_BAD_REQUEST
+        serializer.is_valid(raise_exception=True)
+        try:
+            token = CoreService.login(
+                username=serializer.validated_data["username"],
+                password=serializer.validated_data["password"],
             )
-
-        if not isinstance(request.user, User):
-            return Response(None, status=status.HTTP_401_UNAUTHORIZED)
-
-        password_changed = CoreService.change_password(
-            user=request.user,
-            current_password=serializer.validated_data["current_password"],
-            new_password=serializer.validated_data["new_password"],
+        except InvalidCredentialsError:
+            return Response(
+                {"detail": "Invalid username or password."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(
+            CoreLoginResponseSerializer({"token": token}).data,
+            status=status.HTTP_200_OK,
         )
 
-        if not password_changed:
-            return Response(None, status=status.HTTP_401_UNAUTHORIZED)
 
-        return Response(None, status=status.HTTP_200_OK)
+class CoreValidateTokenView(APIView):
+    """Check whether the bearer token is valid."""
+
+    @extend_schema(
+        tags=[_AUTH_TAG],
+        description="Validate the access token sent in the header.",
+        responses={200: None, 401: None},
+    )
+    def get(self, request: Request) -> Response:
+        """Return 200 when the JWT authentication succeeds."""
+        return Response(status=status.HTTP_200_OK)
 
 
-@extend_schema(
-    description="Change user authenticated name.",
-    request=CoreChangeNameSerializer,
-    responses={200: None},
-)
-class CoreAuthenticatedUserChangeNameView(APIView):
-    """Core API view for change user authenticated name."""
+class CoreAuthenticatedUserInfoView(APIView):
+    """Expose the data of the authenticated user."""
 
+    @extend_schema(
+        tags=[_AUTH_TAG],
+        description="Retrieve the authenticated user data.",
+        responses={200: CoreUserInfoSerializer, 401: None},
+    )
+    def get(self, request: Request) -> Response:
+        """Return the authenticated user data."""
+        return Response(
+            CoreUserInfoSerializer(request.user).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class CoreAuthenticatedUserChangePasswordView(APIView):
+    """Change the password of the authenticated user."""
+
+    @extend_schema(
+        tags=[_AUTH_TAG],
+        description="Change the authenticated user password.",
+        request=CoreChangePasswordSerializer,
+        responses={204: None, 400: None, 401: None},
+    )
     def patch(self, request: Request) -> Response:
-        serializer = CoreChangeNameSerializer(data=request.data)
-
-        if not serializer.is_valid():
-            return Response(
-                serializer.errors, status=status.HTTP_400_BAD_REQUEST
+        """Replace the password after checking the current one."""
+        serializer = CoreChangePasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            CoreService.change_password(
+                user=cast(User, request.user),
+                current_password=serializer.validated_data["current_password"],
+                new_password=serializer.validated_data["new_password"],
             )
+        except InvalidCredentialsError:
+            return Response(
+                {"current_password": ["Current password is incorrect."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
-        if not isinstance(request.user, User):
-            return Response(None, status=status.HTTP_401_UNAUTHORIZED)
 
-        CoreService.change_name(
-            user=request.user,
+class CoreAuthenticatedUserChangeNameView(APIView):
+    """Change the name of the authenticated user."""
+
+    @extend_schema(
+        tags=[_AUTH_TAG],
+        description="Change the authenticated user first and last names.",
+        request=CoreChangeNameSerializer,
+        responses={200: CoreUserInfoSerializer, 400: None, 401: None},
+    )
+    def patch(self, request: Request) -> Response:
+        """Update the names and return the user data."""
+        serializer = CoreChangeNameSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = CoreService.change_name(
+            user=cast(User, request.user),
             first_name=serializer.validated_data["first_name"],
             last_name=serializer.validated_data["last_name"],
         )
-
-        return Response(None, status=status.HTTP_200_OK)
+        return Response(
+            CoreUserInfoSerializer(user).data, status=status.HTTP_200_OK
+        )
