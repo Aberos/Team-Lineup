@@ -12,5 +12,6 @@ done
 
 cd /app
 python manage.py migrate --noinput
+python manage.py seed_defaults
 exec python -m debugpy --listen "0.0.0.0:${DEBUG_PORT}" \
   manage.py runserver "0.0.0.0:${APP_PORT}" --noreload

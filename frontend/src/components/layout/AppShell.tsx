@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: "/events", label: "Eventos" },
   { to: "/players", label: "Jogadores" },
   { to: "/roles", label: "Funções" },
+  { to: "/attributes", label: "Atributos" },
 ] as const
 
 export function AppShell() {
@@ -18,7 +19,7 @@ export function AppShell() {
           <span className="font-semibold">TeamLineup</span>
           <nav
             aria-label="Principal"
-            className="order-last flex w-full gap-4 text-sm sm:order-none sm:w-auto"
+            className="order-last flex w-full gap-4 overflow-x-auto text-sm whitespace-nowrap sm:order-none sm:w-auto"
           >
             {NAV_ITEMS.map((item) => (
               <NavLink

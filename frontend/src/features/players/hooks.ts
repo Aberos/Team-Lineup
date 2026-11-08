@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
-import { playersApi, rolesApi } from "./api"
-import type { PlayerPayload, RolePayload } from "./types"
+import { attributesApi, playersApi, rolesApi } from "./api"
+import type { AttributePayload, PlayerPayload, RolePayload } from "./types"
 
 const ROLES_KEY = ["players", "roles"] as const
 const PLAYERS_KEY = ["players", "list"] as const
+const ATTRIBUTES_KEY = ["players", "attributes"] as const
 
 const playerKey = (id: number) => ["players", "detail", id] as const
 const playerRolesKey = (id: number) => ["players", "detail", id, "roles"] as const
+const playerAttributesKey = (id: number) =>
+  ["players", "detail", id, "attributes"] as const
 
 export function useRoles() {
   return useQuery({ queryKey: ROLES_KEY, queryFn: rolesApi.list })
@@ -97,5 +100,89 @@ export function useRemoveRole(playerId: number) {
     mutationFn: (roleId: number) => playersApi.removeRole(playerId, roleId),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: playerRolesKey(playerId) }),
+  })
+}
+
+export function useAttributes() {
+  return useQuery({ queryKey: ATTRIBUTES_KEY, queryFn: attributesApi.list })
+}
+
+export function useCreateAttribute() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: AttributePayload) => attributesApi.create(payload),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ATTRIBUTES_KEY }),
+  })
+}
+
+export function useUpdateAttribute() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: AttributePayload }) =>
+      attributesApi.update(id, payload),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["players"] }),
+  })
+}
+
+export function useDeleteAttribute() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => attributesApi.remove(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["players"] }),
+  })
+}
+
+export function usePlayerAttributes(playerId: number) {
+  return useQuery({
+    queryKey: playerAttributesKey(playerId),
+    queryFn: () => playersApi.listAttributes(playerId),
+  })
+}
+
+export function useRatePlayer(playerId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      attributeId,
+      value,
+    }: {
+      attributeId: number
+      value: number
+    }) =>
+      playersApi.rateAttribute(playerId, { attribute_id: attributeId, value }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: playerAttributesKey(playerId),
+      }),
+  })
+}
+
+export function useUpdateRating(playerId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      attributeId,
+      value,
+    }: {
+      attributeId: number
+      value: number
+    }) => playersApi.updateAttribute(playerId, attributeId, { value }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: playerAttributesKey(playerId),
+      }),
+  })
+}
+
+export function useRemoveRating(playerId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (attributeId: number) =>
+      playersApi.removeAttribute(playerId, attributeId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: playerAttributesKey(playerId),
+      }),
   })
 }

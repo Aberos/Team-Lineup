@@ -15,6 +15,7 @@ import { formatDate } from "@/lib/format"
 import { useIdParam } from "@/lib/use-id-param"
 
 import { useDeletePlayer, usePlayer } from "./hooks"
+import { PlayerAttributesCard } from "./PlayerAttributesCard"
 import { PlayerFormDialog } from "./PlayerFormDialog"
 import { PlayerRolesCard } from "./PlayerRolesCard"
 
@@ -89,7 +90,10 @@ function PlayerDetailContent({ playerId }: PlayerDetailContentProps) {
           </dl>
         </CardContent>
       </Card>
-      <PlayerRolesCard playerId={playerId} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <PlayerAttributesCard playerId={playerId} />
+        <PlayerRolesCard playerId={playerId} />
+      </div>
       <PlayerFormDialog
         open={editOpen}
         player={player.data}

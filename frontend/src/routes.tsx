@@ -49,6 +49,13 @@ export const router = createBrowserRouter(
               }),
             },
             {
+              path: "attributes",
+              lazy: async () => ({
+                Component: (await import("@/features/players/AttributesPage"))
+                  .AttributesPage,
+              }),
+            },
+            {
               path: "roles",
               lazy: async () => ({
                 Component: (await import("@/features/players/RolesPage"))

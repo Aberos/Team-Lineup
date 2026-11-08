@@ -1,16 +1,31 @@
 """Tests for the players services."""
 
 from datetime import date
+from io import StringIO
 from typing import Any
 
+from django.core.management import call_command
 from django.test import TestCase
 
 from apps.players.exceptions import (
+    AttributeNameAlreadyExistsError,
+    PlayerAttributeAlreadyExistsError,
     PlayerEmailAlreadyExistsError,
     PlayerRoleAlreadyAssignedError,
 )
-from apps.players.models import Player, PlayerRole, Role
-from apps.players.services import PlayerService
+from apps.players.models import (
+    Attribute,
+    Player,
+    PlayerAttribute,
+    PlayerRole,
+    Role,
+)
+from apps.players.services import (
+    DEFAULT_ATTRIBUTE_NAMES,
+    DEFAULT_ROLE_NAMES,
+    AttributeService,
+    PlayerService,
+)
 
 _MISSING_ID = 999_999
 
@@ -173,3 +188,136 @@ class PlayerServicePlayerRoleTests(TestCase):
         """Raise PlayerRole.DoesNotExist when the role is not assigned."""
         with self.assertRaises(PlayerRole.DoesNotExist):
             PlayerService.remove_role(self.player.id, self.role.id)
+
+
+class AttributeServiceTests(TestCase):
+    """Tests for AttributeService."""
+
+    def setUp(self) -> None:
+        self.player = PlayerService.create_player(**_player_fields())
+
+    def test_create_attribute_strips_name(self) -> None:
+        """Persist the attribute name without surrounding spaces."""
+        attribute = AttributeService.create_attribute("  Passe ")
+
+        self.assertEqual(attribute.name, "Passe")
+
+    def test_create_attribute_duplicated_name_raises(self) -> None:
+        """Raise when the name is used, ignoring case."""
+        AttributeService.create_attribute("Passe")
+
+        with self.assertRaises(AttributeNameAlreadyExistsError):
+            AttributeService.create_attribute("PASSE")
+
+    def test_rename_attribute_keeps_own_name(self) -> None:
+        """Allow renaming an attribute to its current name."""
+        attribute = AttributeService.create_attribute("Passe")
+
+        renamed = AttributeService.rename_attribute(attribute.id, "Passe")
+
+        self.assertEqual(renamed.name, "Passe")
+
+    def test_rename_to_other_name_raises(self) -> None:
+        """Raise when another attribute already uses the name."""
+        AttributeService.create_attribute("Passe")
+        other = AttributeService.create_attribute("Chute")
+
+        with self.assertRaises(AttributeNameAlreadyExistsError):
+            AttributeService.rename_attribute(other.id, "passe")
+
+    def test_rate_and_update_player(self) -> None:
+        """Create a rating and change its value."""
+        attribute = AttributeService.create_attribute("Passe")
+
+        AttributeService.rate_player(
+            self.player.id, attribute_id=attribute.id, value=60
+        )
+        updated = AttributeService.update_rating(
+            self.player.id, attribute_id=attribute.id, value=85
+        )
+
+        self.assertEqual(updated.value, 85)
+        self.assertEqual(
+            AttributeService.list_player_attributes(self.player.id), [updated]
+        )
+
+    def test_rate_twice_raises(self) -> None:
+        """Raise when the player already has a rating for the attribute."""
+        attribute = AttributeService.create_attribute("Passe")
+        AttributeService.rate_player(
+            self.player.id, attribute_id=attribute.id, value=60
+        )
+
+        with self.assertRaises(PlayerAttributeAlreadyExistsError):
+            AttributeService.rate_player(
+                self.player.id, attribute_id=attribute.id, value=70
+            )
+
+    def test_rate_missing_attribute_raises(self) -> None:
+        """Raise Attribute.DoesNotExist for an unknown attribute."""
+        with self.assertRaises(Attribute.DoesNotExist):
+            AttributeService.rate_player(
+                self.player.id, attribute_id=_MISSING_ID, value=10
+            )
+
+    def test_list_ratings_of_missing_player_raises(self) -> None:
+        """Raise Player.DoesNotExist for an unknown player."""
+        with self.assertRaises(Player.DoesNotExist):
+            AttributeService.list_player_attributes(_MISSING_ID)
+
+    def test_remove_missing_rating_raises(self) -> None:
+        """Raise PlayerAttribute.DoesNotExist when there is no rating."""
+        attribute = AttributeService.create_attribute("Passe")
+
+        with self.assertRaises(PlayerAttribute.DoesNotExist):
+            AttributeService.remove_rating(self.player.id, attribute.id)
+
+
+class SeedDefaultCatalogTests(TestCase):
+    """Tests for the default catalog seed."""
+
+    def test_seed_creates_default_roles_and_attributes(self) -> None:
+        """Create every default role and attribute."""
+        result = PlayerService.seed_default_catalog()
+
+        self.assertEqual(
+            sorted(role.name for role in result.roles), ["ATK", "DEF", "MID"]
+        )
+        self.assertEqual(
+            set(Attribute.objects.values_list("name", flat=True)),
+            set(DEFAULT_ATTRIBUTE_NAMES),
+        )
+
+    def test_seed_is_idempotent(self) -> None:
+        """Create nothing when the seed runs again."""
+        PlayerService.seed_default_catalog()
+
+        result = PlayerService.seed_default_catalog()
+
+        self.assertEqual((result.roles, result.attributes), ([], []))
+        self.assertEqual(Role.objects.count(), len(DEFAULT_ROLE_NAMES))
+
+    def test_seed_keeps_existing_names_ignoring_case(self) -> None:
+        """Skip names that already exist with another case."""
+        Role.objects.create(name="def")
+        Attribute.objects.create(name="passe")
+
+        result = PlayerService.seed_default_catalog()
+
+        self.assertNotIn("DEF", [role.name for role in result.roles])
+        self.assertEqual(Role.objects.filter(name__iexact="def").count(), 1)
+        self.assertEqual(
+            Attribute.objects.filter(name__iexact="passe").count(), 1
+        )
+
+    def test_command_reports_created_records(self) -> None:
+        """Print what was created and nothing on the second run."""
+        first = StringIO()
+        second = StringIO()
+
+        call_command("seed_defaults", stdout=first)
+        call_command("seed_defaults", stdout=second)
+
+        self.assertIn("Funções criadas: DEF, MID, ATK", first.getvalue())
+        self.assertIn("Funções criadas: nenhuma", second.getvalue())
+        self.assertIn("Atributos criados: nenhum", second.getvalue())

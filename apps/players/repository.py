@@ -2,7 +2,13 @@
 
 from datetime import date
 
-from apps.players.models import Player, PlayerRole, Role
+from apps.players.models import (
+    Attribute,
+    Player,
+    PlayerAttribute,
+    PlayerRole,
+    Role,
+)
 
 
 class RoleRepository:
@@ -39,6 +45,18 @@ class RoleRepository:
     def list_all() -> list[Role]:
         """Return every role ordered by name."""
         return list(Role.objects.order_by("name"))
+
+    @staticmethod
+    def name_exists(name: str) -> bool:
+        """Check whether a role already uses the given name.
+
+        Args:
+            name: Name to look for, compared without case.
+
+        Returns:
+            True when a role uses the name.
+        """
+        return Role.objects.filter(name__iexact=name).exists()
 
     @staticmethod
     def list_by_player(player_id: int) -> list[Role]:
@@ -247,3 +265,177 @@ class PlayerRoleRepository:
             player_role: Relationship to delete.
         """
         player_role.delete()
+
+
+class AttributeRepository:
+    """Provide data access for the attribute catalog."""
+
+    @staticmethod
+    def create(name: str) -> Attribute:
+        """Persist a new attribute.
+
+        Args:
+            name: Unique display name of the attribute.
+
+        Returns:
+            The created attribute.
+        """
+        return Attribute.objects.create(name=name)
+
+    @staticmethod
+    def get_by_id(attribute_id: int) -> Attribute:
+        """Return the attribute with the given identifier.
+
+        Args:
+            attribute_id: Primary key of the attribute.
+
+        Returns:
+            The matching attribute.
+
+        Raises:
+            Attribute.DoesNotExist: If no attribute has the identifier.
+        """
+        return Attribute.objects.get(id=attribute_id)
+
+    @staticmethod
+    def list_all() -> list[Attribute]:
+        """Return every attribute ordered by name."""
+        return list(Attribute.objects.order_by("name"))
+
+    @staticmethod
+    def name_exists(name: str, exclude_id: int | None = None) -> bool:
+        """Check whether an attribute already uses the given name.
+
+        Args:
+            name: Name to look for, compared without case.
+            exclude_id: Primary key of an attribute to ignore.
+
+        Returns:
+            True when another attribute uses the name.
+        """
+        queryset = Attribute.objects.filter(name__iexact=name)
+        if exclude_id is not None:
+            queryset = queryset.exclude(id=exclude_id)
+        return queryset.exists()
+
+    @staticmethod
+    def update_name(attribute: Attribute, name: str) -> Attribute:
+        """Change the name of an attribute.
+
+        Args:
+            attribute: Attribute to update.
+            name: New display name.
+
+        Returns:
+            The updated attribute.
+        """
+        attribute.name = name
+        attribute.save(update_fields=["name"])
+        return attribute
+
+    @staticmethod
+    def delete(attribute: Attribute) -> None:
+        """Remove an attribute and every rating that uses it.
+
+        Args:
+            attribute: Attribute to delete.
+        """
+        attribute.delete()
+
+
+class PlayerAttributeRepository:
+    """Provide data access for the ratings of players."""
+
+    @staticmethod
+    def create(
+        *, player: Player, attribute: Attribute, value: int
+    ) -> PlayerAttribute:
+        """Persist the rating of a player in an attribute.
+
+        Args:
+            player: Rated player.
+            attribute: Rated attribute.
+            value: Rating between the allowed bounds.
+
+        Returns:
+            The created rating with its attribute loaded.
+        """
+        return PlayerAttribute.objects.create(
+            player=player, attribute=attribute, value=value
+        )
+
+    @staticmethod
+    def exists(player_id: int, attribute_id: int) -> bool:
+        """Check whether the player already has a rating for the attribute.
+
+        Args:
+            player_id: Primary key of the player.
+            attribute_id: Primary key of the attribute.
+
+        Returns:
+            True when the rating exists.
+        """
+        return PlayerAttribute.objects.filter(
+            player_id=player_id, attribute_id=attribute_id
+        ).exists()
+
+    @staticmethod
+    def get(player_id: int, attribute_id: int) -> PlayerAttribute:
+        """Return the rating of a player in an attribute.
+
+        Args:
+            player_id: Primary key of the player.
+            attribute_id: Primary key of the attribute.
+
+        Returns:
+            The matching rating with its attribute loaded.
+
+        Raises:
+            PlayerAttribute.DoesNotExist: If the player has no rating for
+                the attribute.
+        """
+        return PlayerAttribute.objects.select_related("attribute").get(
+            player_id=player_id, attribute_id=attribute_id
+        )
+
+    @staticmethod
+    def list_by_player(player_id: int) -> list[PlayerAttribute]:
+        """Return the ratings of a player ordered by attribute name.
+
+        Args:
+            player_id: Primary key of the player.
+
+        Returns:
+            The ratings with their attributes loaded.
+        """
+        return list(
+            PlayerAttribute.objects.select_related("attribute")
+            .filter(player_id=player_id)
+            .order_by("attribute__name")
+        )
+
+    @staticmethod
+    def update_value(
+        player_attribute: PlayerAttribute, value: int
+    ) -> PlayerAttribute:
+        """Change the value of a rating.
+
+        Args:
+            player_attribute: Rating to update.
+            value: New rating between the allowed bounds.
+
+        Returns:
+            The updated rating.
+        """
+        player_attribute.value = value
+        player_attribute.save(update_fields=["value"])
+        return player_attribute
+
+    @staticmethod
+    def delete(player_attribute: PlayerAttribute) -> None:
+        """Remove a rating.
+
+        Args:
+            player_attribute: Rating to delete.
+        """
+        player_attribute.delete()

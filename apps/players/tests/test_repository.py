@@ -4,8 +4,16 @@ from datetime import date
 
 from django.test import TestCase
 
-from apps.players.models import Player, PlayerRole, Role
+from apps.players.models import (
+    Attribute,
+    Player,
+    PlayerAttribute,
+    PlayerRole,
+    Role,
+)
 from apps.players.repository import (
+    AttributeRepository,
+    PlayerAttributeRepository,
     PlayerRepository,
     PlayerRoleRepository,
     RoleRepository,
@@ -155,3 +163,69 @@ class PlayerRoleRepositoryTests(TestCase):
         PlayerRoleRepository.delete(player_role)
 
         self.assertFalse(PlayerRole.objects.exists())
+
+
+class AttributeRepositoryTests(TestCase):
+    """Tests for AttributeRepository and PlayerAttributeRepository."""
+
+    def setUp(self) -> None:
+        self.player = _create_player()
+        self.attribute = AttributeRepository.create(name="Passe")
+
+    def test_name_exists_ignores_case_and_exclusion(self) -> None:
+        """Find names without case and ignore the excluded attribute."""
+        self.assertTrue(AttributeRepository.name_exists("PASSE"))
+        self.assertFalse(
+            AttributeRepository.name_exists(
+                "passe", exclude_id=self.attribute.id
+            )
+        )
+
+    def test_update_and_delete_attribute(self) -> None:
+        """Rename and remove an attribute."""
+        AttributeRepository.update_name(self.attribute, name="Chute")
+
+        self.assertEqual(AttributeRepository.list_all()[0].name, "Chute")
+        AttributeRepository.delete(self.attribute)
+        self.assertFalse(Attribute.objects.exists())
+
+    def test_get_missing_attribute_raises(self) -> None:
+        """Raise DoesNotExist for an unknown identifier."""
+        with self.assertRaises(Attribute.DoesNotExist):
+            AttributeRepository.get_by_id(_MISSING_ID)
+
+    def test_player_attribute_crud(self) -> None:
+        """Create, find, update and delete a rating."""
+        rating = PlayerAttributeRepository.create(
+            player=self.player, attribute=self.attribute, value=50
+        )
+
+        self.assertTrue(
+            PlayerAttributeRepository.exists(self.player.id, self.attribute.id)
+        )
+        PlayerAttributeRepository.update_value(rating, value=75)
+        found = PlayerAttributeRepository.get(
+            self.player.id, self.attribute.id
+        )
+        self.assertEqual(found.value, 75)
+        self.assertEqual(
+            PlayerAttributeRepository.list_by_player(self.player.id), [rating]
+        )
+        PlayerAttributeRepository.delete(rating)
+        self.assertFalse(PlayerAttribute.objects.exists())
+
+    def test_get_missing_rating_raises(self) -> None:
+        """Raise DoesNotExist when the player has no rating."""
+        with self.assertRaises(PlayerAttribute.DoesNotExist):
+            PlayerAttributeRepository.get(self.player.id, self.attribute.id)
+
+
+class RoleNameExistsTests(TestCase):
+    """Tests for RoleRepository.name_exists."""
+
+    def test_name_exists_ignores_case(self) -> None:
+        """Find a role name regardless of case."""
+        RoleRepository.create(name="DEF")
+
+        self.assertTrue(RoleRepository.name_exists("def"))
+        self.assertFalse(RoleRepository.name_exists("MID"))

@@ -17,6 +17,12 @@ const PLAYER = {
 }
 const GOALKEEPER = { id: 5, name: "Goleiro" }
 const STRIKER = { id: 6, name: "Atacante" }
+const PASS = { id: 30, name: "Passe" }
+const SPEED = { id: 31, name: "Velocidade" }
+const NO_ATTRIBUTES = {
+  "GET /player/1/attribute/": [],
+  "GET /attribute/": [],
+}
 
 const renderDetail = (initialPath = "/players/1") =>
   renderWithProviders(<PlayerDetailPage />, {
@@ -35,6 +41,7 @@ describe("PlayerDetailPage", () => {
       "GET /player/1/": PLAYER,
       "GET /player/1/role/": [GOALKEEPER],
       "GET /role/": [GOALKEEPER, STRIKER],
+      ...NO_ATTRIBUTES,
     })
 
     renderDetail()
@@ -54,6 +61,7 @@ describe("PlayerDetailPage", () => {
       "GET /player/1/": PLAYER,
       "GET /player/1/role/": [],
       "GET /role/": [STRIKER],
+      ...NO_ATTRIBUTES,
       "POST /player/1/role/": () => jsonResponse(STRIKER, 201),
     })
     renderDetail()
@@ -77,6 +85,7 @@ describe("PlayerDetailPage", () => {
       "GET /player/1/": PLAYER,
       "GET /player/1/role/": [],
       "GET /role/": [],
+      ...NO_ATTRIBUTES,
       "DELETE /player/1/": () => noContent(),
     })
     renderDetail()
@@ -101,5 +110,101 @@ describe("PlayerDetailPage", () => {
     expect(
       await screen.findByText("Jogador não encontrado."),
     ).toBeInTheDocument()
+  })
+})
+
+describe("PlayerDetailPage atributos", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const baseHandlers = {
+    "GET /player/1/": PLAYER,
+    "GET /player/1/role/": [],
+    "GET /role/": [],
+  }
+
+  it("mostra as notas e oferece só atributos não avaliados", async () => {
+    mockApi({
+      ...baseHandlers,
+      "GET /player/1/attribute/": [{ attribute: PASS, value: 82 }],
+      "GET /attribute/": [PASS, SPEED],
+    })
+
+    renderDetail()
+
+    expect(
+      await screen.findByRole("progressbar", { name: "Passe: 82 de 100" }),
+    ).toBeInTheDocument()
+    const select = screen.getByLabelText("Atributo")
+    expect(within(select).queryByText("Passe")).not.toBeInTheDocument()
+    expect(within(select).getByText("Velocidade")).toBeInTheDocument()
+  })
+
+  it("valida a nota entre 0 e 100 e envia a avaliação", async () => {
+    const api = mockApi({
+      ...baseHandlers,
+      "GET /player/1/attribute/": [],
+      "GET /attribute/": [SPEED],
+      "POST /player/1/attribute/": () =>
+        jsonResponse({ attribute: SPEED, value: 90 }, 201),
+    })
+    renderDetail()
+    await screen.findByText("Nenhum atributo avaliado.")
+
+    await userEvent.selectOptions(screen.getByLabelText("Atributo"), "31")
+    await userEvent.type(screen.getByLabelText("Nota"), "150")
+    await userEvent.click(screen.getByRole("button", { name: "Avaliar" }))
+
+    expect(
+      await screen.findByText("Informe uma nota de 0 a 100"),
+    ).toBeInTheDocument()
+    expect(api.find("POST", "/player/1/attribute/")).toBeUndefined()
+
+    await userEvent.clear(screen.getByLabelText("Nota"))
+    await userEvent.type(screen.getByLabelText("Nota"), "90")
+    await userEvent.click(screen.getByRole("button", { name: "Avaliar" }))
+
+    await waitFor(() =>
+      expect(api.find("POST", "/player/1/attribute/")?.body).toEqual({
+        attribute_id: 31,
+        value: 90,
+      }),
+    )
+  })
+
+  it("edita uma nota existente", async () => {
+    const api = mockApi({
+      ...baseHandlers,
+      "GET /player/1/attribute/": [{ attribute: PASS, value: 60 }],
+      "GET /attribute/": [PASS],
+      "PUT /player/1/attribute/30/": () =>
+        jsonResponse({ attribute: PASS, value: 75 }),
+    })
+    renderDetail()
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Editar nota de Passe" }),
+    )
+    const input = await screen.findByLabelText("Nota (0 a 100)")
+    await userEvent.clear(input)
+    await userEvent.type(input, "75")
+    await userEvent.click(screen.getByRole("button", { name: "Salvar" }))
+
+    await waitFor(() =>
+      expect(api.find("PUT", "/player/1/attribute/30/")?.body).toEqual({
+        value: 75,
+      }),
+    )
+  })
+
+  it("indica onde cadastrar atributos quando o catálogo está vazio", async () => {
+    mockApi({ ...baseHandlers, ...NO_ATTRIBUTES })
+
+    renderDetail()
+
+    expect(
+      await screen.findByRole("link", { name: "Atributos" }),
+    ).toHaveAttribute("href", "/attributes")
   })
 })

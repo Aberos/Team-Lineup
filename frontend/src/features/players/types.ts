@@ -17,3 +17,22 @@ export type Player = PlayerListItem & {
 export type PlayerPayload = Omit<Player, "id">
 
 export type PlayerRolePayload = { role_id: number }
+
+export const ATTRIBUTE_VALUE_MIN = 0
+export const ATTRIBUTE_VALUE_MAX = 100
+
+export type Attribute = { id: number; name: string }
+
+export type AttributePayload = { name: string }
+
+export type PlayerAttribute = {
+  attribute: Attribute
+  value: number
+}
+
+export type PlayerAttributeCreatePayload = {
+  attribute_id: number
+  value: number
+}
+
+export type PlayerAttributeUpdatePayload = { value: number }

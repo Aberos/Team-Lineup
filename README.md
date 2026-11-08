@@ -5,6 +5,7 @@ Sistema para organizar eventos esportivos: cadastro de jogadores, inscrição em
 ## Funcionalidades
 
 - Cadastro de jogadores e das funções (posições) em que atuam
+- Atributos dos jogadores (ex.: velocidade, passe), com nota de 0 a 100
 - Eventos com data e local
 - Inscrição de jogadores nos eventos, com pontuação
 - Montagem de times dentro de cada evento
@@ -23,7 +24,7 @@ Sistema para organizar eventos esportivos: cadastro de jogadores, inscrição em
 ```
 apps/
   core/       autenticação e dados do usuário
-  players/    jogadores e funções
+  players/    jogadores, funções e atributos
   events/     eventos, participantes, times e partidas
 config/       configurações do Django
 frontend/     aplicação React
@@ -44,7 +45,7 @@ Suba os serviços:
 docker compose up --build -d
 ```
 
-Na inicialização, o container instala as dependências do frontend, gera o build, aplica as migrações e inicia o Django. Endereços:
+Na inicialização, o container instala as dependências do frontend, gera o build, aplica as migrações, cadastra as funções e os atributos padrão e inicia o Django. Endereços:
 
 - Aplicação: http://localhost:8000/
 - API: http://localhost:8000/api/v1/
@@ -59,6 +60,19 @@ docker compose down
 ```
 
 Os dados do banco ficam no volume `postgres_data`.
+
+## Dados iniciais
+
+O sistema já vem com estas funções e atributos cadastrados:
+
+- **Funções:** DEF, MID e ATK
+- **Atributos:** Velocidade, Passe, Finalização, Drible, Defesa e Físico
+
+O cadastro é feito pelo comando abaixo, executado automaticamente ao subir o container. Ele só cria o que ainda não existe, então pode ser rodado mais de uma vez:
+
+```sh
+docker compose exec app python manage.py seed_defaults
+```
 
 ## Criar superusuário
 

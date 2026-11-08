@@ -7,11 +7,27 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.players.exceptions import (
+    AttributeNameAlreadyExistsError,
+    PlayerAttributeAlreadyExistsError,
     PlayerEmailAlreadyExistsError,
     PlayerRoleAlreadyAssignedError,
 )
-from apps.players.models import Player, PlayerRole, Role
+from apps.players.models import (
+    Attribute,
+    Player,
+    PlayerAttribute,
+    PlayerRole,
+    Role,
+)
 from apps.players.serializers import (
+    AttributeCreateSerializer,
+    AttributeDetailSerializer,
+    AttributeListSerializer,
+    AttributeUpdateSerializer,
+    PlayerAttributeCreateSerializer,
+    PlayerAttributeDetailSerializer,
+    PlayerAttributeListSerializer,
+    PlayerAttributeUpdateSerializer,
     PlayerCreateSerializer,
     PlayerDetailSerializer,
     PlayerListSerializer,
@@ -22,13 +38,19 @@ from apps.players.serializers import (
     RoleListSerializer,
     RoleUpdateSerializer,
 )
-from apps.players.services import PlayerService
+from apps.players.services import AttributeService, PlayerService
 
 _ROLE_TAG = "players-roles"
 _PLAYER_TAG = "players"
 _ROLE_NOT_FOUND = {"detail": "Role not found."}
 _PLAYER_NOT_FOUND = {"detail": "Player not found."}
 _EMAIL_IN_USE = {"email": ["A player with this email already exists."]}
+_ATTRIBUTE_TAG = "players-attributes"
+_ATTRIBUTE_NOT_FOUND = {"detail": "Attribute not found."}
+_ATTRIBUTE_NAME_IN_USE = {
+    "name": ["An attribute with this name already exists."]
+}
+_RATING_NOT_FOUND = {"detail": "Player has no rating for this attribute."}
 
 
 class RoleListCreateView(APIView):
@@ -310,5 +332,262 @@ class PlayerRoleDetailView(APIView):
             return Response(
                 {"detail": "Role not assigned to this player."},
                 status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AttributeListCreateView(APIView):
+    """List and create attributes of the catalog."""
+
+    @extend_schema(
+        tags=[_ATTRIBUTE_TAG],
+        description="List all attributes.",
+        responses={200: AttributeListSerializer(many=True), 401: None},
+    )
+    def get(self, request: Request) -> Response:
+        """Return every attribute."""
+        attributes = AttributeService.list_attributes()
+        return Response(
+            AttributeListSerializer(attributes, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        tags=[_ATTRIBUTE_TAG],
+        description="Create a new attribute.",
+        request=AttributeCreateSerializer,
+        responses={
+            201: AttributeDetailSerializer,
+            400: None,
+            401: None,
+            409: None,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        """Create an attribute from the request body."""
+        serializer = AttributeCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            attribute = AttributeService.create_attribute(
+                serializer.validated_data["name"]
+            )
+        except AttributeNameAlreadyExistsError:
+            return Response(
+                _ATTRIBUTE_NAME_IN_USE, status=status.HTTP_409_CONFLICT
+            )
+        return Response(
+            AttributeDetailSerializer(attribute).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AttributeDetailView(APIView):
+    """Retrieve, rename and delete an attribute."""
+
+    @extend_schema(
+        tags=[_ATTRIBUTE_TAG],
+        description="Retrieve an attribute by ID.",
+        responses={200: AttributeDetailSerializer, 401: None, 404: None},
+    )
+    def get(self, request: Request, attribute_id: int) -> Response:
+        """Return the requested attribute."""
+        try:
+            attribute = AttributeService.get_attribute_by_id(attribute_id)
+        except Attribute.DoesNotExist:
+            return Response(
+                _ATTRIBUTE_NOT_FOUND, status=status.HTTP_404_NOT_FOUND
+            )
+        return Response(
+            AttributeDetailSerializer(attribute).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        tags=[_ATTRIBUTE_TAG],
+        description="Rename an attribute by ID.",
+        request=AttributeUpdateSerializer,
+        responses={
+            200: AttributeDetailSerializer,
+            400: None,
+            401: None,
+            404: None,
+            409: None,
+        },
+    )
+    def put(self, request: Request, attribute_id: int) -> Response:
+        """Rename the requested attribute."""
+        serializer = AttributeUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            attribute = AttributeService.rename_attribute(
+                attribute_id, serializer.validated_data["name"]
+            )
+        except Attribute.DoesNotExist:
+            return Response(
+                _ATTRIBUTE_NOT_FOUND, status=status.HTTP_404_NOT_FOUND
+            )
+        except AttributeNameAlreadyExistsError:
+            return Response(
+                _ATTRIBUTE_NAME_IN_USE, status=status.HTTP_409_CONFLICT
+            )
+        return Response(
+            AttributeDetailSerializer(attribute).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        tags=[_ATTRIBUTE_TAG],
+        description="Delete an attribute and the ratings that use it.",
+        responses={204: None, 401: None, 404: None},
+    )
+    def delete(self, request: Request, attribute_id: int) -> Response:
+        """Delete the requested attribute."""
+        try:
+            AttributeService.delete_attribute(attribute_id)
+        except Attribute.DoesNotExist:
+            return Response(
+                _ATTRIBUTE_NOT_FOUND, status=status.HTTP_404_NOT_FOUND
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PlayerAttributeListCreateView(APIView):
+    """List and create the ratings of a player."""
+
+    @extend_schema(
+        tags=[_PLAYER_TAG],
+        description="List the attribute ratings of a player.",
+        responses={
+            200: PlayerAttributeListSerializer(many=True),
+            401: None,
+            404: None,
+        },
+    )
+    def get(self, request: Request, player_id: int) -> Response:
+        """Return the ratings of the requested player."""
+        try:
+            ratings = AttributeService.list_player_attributes(player_id)
+        except Player.DoesNotExist:
+            return Response(
+                _PLAYER_NOT_FOUND, status=status.HTTP_404_NOT_FOUND
+            )
+        return Response(
+            PlayerAttributeListSerializer(ratings, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        tags=[_PLAYER_TAG],
+        description="Rate a player in an attribute (0 to 100).",
+        request=PlayerAttributeCreateSerializer,
+        responses={
+            201: PlayerAttributeDetailSerializer,
+            400: None,
+            401: None,
+            404: None,
+            409: None,
+        },
+    )
+    def post(self, request: Request, player_id: int) -> Response:
+        """Create the rating sent in the body."""
+        serializer = PlayerAttributeCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            rating = AttributeService.rate_player(
+                player_id, **serializer.validated_data
+            )
+        except Player.DoesNotExist:
+            return Response(
+                _PLAYER_NOT_FOUND, status=status.HTTP_404_NOT_FOUND
+            )
+        except Attribute.DoesNotExist:
+            return Response(
+                {"attribute_id": ["Attribute not found."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except PlayerAttributeAlreadyExistsError:
+            return Response(
+                {"detail": "Player already has a rating for this attribute."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(
+            PlayerAttributeDetailSerializer(rating).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PlayerAttributeDetailView(APIView):
+    """Retrieve, update and remove a rating of a player."""
+
+    @extend_schema(
+        tags=[_PLAYER_TAG],
+        description="Retrieve the rating of a player in an attribute.",
+        responses={
+            200: PlayerAttributeDetailSerializer,
+            401: None,
+            404: None,
+        },
+    )
+    def get(
+        self, request: Request, player_id: int, attribute_id: int
+    ) -> Response:
+        """Return the requested rating."""
+        try:
+            rating = AttributeService.get_rating(player_id, attribute_id)
+        except PlayerAttribute.DoesNotExist:
+            return Response(
+                _RATING_NOT_FOUND, status=status.HTTP_404_NOT_FOUND
+            )
+        return Response(
+            PlayerAttributeDetailSerializer(rating).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        tags=[_PLAYER_TAG],
+        description="Change the rating of a player in an attribute.",
+        request=PlayerAttributeUpdateSerializer,
+        responses={
+            200: PlayerAttributeDetailSerializer,
+            400: None,
+            401: None,
+            404: None,
+        },
+    )
+    def put(
+        self, request: Request, player_id: int, attribute_id: int
+    ) -> Response:
+        """Replace the value of the requested rating."""
+        serializer = PlayerAttributeUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            rating = AttributeService.update_rating(
+                player_id,
+                attribute_id=attribute_id,
+                value=serializer.validated_data["value"],
+            )
+        except PlayerAttribute.DoesNotExist:
+            return Response(
+                _RATING_NOT_FOUND, status=status.HTTP_404_NOT_FOUND
+            )
+        return Response(
+            PlayerAttributeDetailSerializer(rating).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        tags=[_PLAYER_TAG],
+        description="Remove the rating of a player in an attribute.",
+        responses={204: None, 401: None, 404: None},
+    )
+    def delete(
+        self, request: Request, player_id: int, attribute_id: int
+    ) -> Response:
+        """Remove the requested rating."""
+        try:
+            AttributeService.remove_rating(player_id, attribute_id)
+        except PlayerAttribute.DoesNotExist:
+            return Response(
+                _RATING_NOT_FOUND, status=status.HTTP_404_NOT_FOUND
             )
         return Response(status=status.HTTP_204_NO_CONTENT)

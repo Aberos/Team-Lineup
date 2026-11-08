@@ -5,6 +5,9 @@ from datetime import date
 from rest_framework import serializers
 
 from apps.players.models import (
+    ATTRIBUTE_NAME_MAX_LENGTH,
+    ATTRIBUTE_VALUE_MAX,
+    ATTRIBUTE_VALUE_MIN,
     PLAYER_EMAIL_MAX_LENGTH,
     PLAYER_NAME_MAX_LENGTH,
     PLAYER_PHONE_MAX_LENGTH,
@@ -95,3 +98,49 @@ class PlayerRoleCreateSerializer(serializers.Serializer):
     """Validate the payload to assign a role to a player."""
 
     role_id = serializers.IntegerField()
+
+
+class AttributeCreateSerializer(serializers.Serializer):
+    """Validate the payload to create an attribute."""
+
+    name = serializers.CharField(max_length=ATTRIBUTE_NAME_MAX_LENGTH)
+
+
+class AttributeUpdateSerializer(AttributeCreateSerializer):
+    """Validate the payload to rename an attribute."""
+
+
+class AttributeListSerializer(serializers.Serializer):
+    """Format an attribute inside a list response."""
+
+    id = serializers.IntegerField(read_only=True)
+    name = serializers.CharField(read_only=True)
+
+
+class AttributeDetailSerializer(AttributeListSerializer):
+    """Format a single attribute response."""
+
+
+class PlayerAttributeUpdateSerializer(serializers.Serializer):
+    """Validate the payload to change the rating of a player."""
+
+    value = serializers.IntegerField(
+        min_value=ATTRIBUTE_VALUE_MIN, max_value=ATTRIBUTE_VALUE_MAX
+    )
+
+
+class PlayerAttributeCreateSerializer(PlayerAttributeUpdateSerializer):
+    """Validate the payload to rate a player in an attribute."""
+
+    attribute_id = serializers.IntegerField()
+
+
+class PlayerAttributeDetailSerializer(serializers.Serializer):
+    """Format a single player rating response."""
+
+    attribute = AttributeListSerializer(read_only=True)
+    value = serializers.IntegerField(read_only=True)
+
+
+class PlayerAttributeListSerializer(PlayerAttributeDetailSerializer):
+    """Format a player rating inside a list response."""

@@ -3,6 +3,10 @@
 from django.urls import path
 
 from apps.players.api.views import (
+    AttributeDetailView,
+    AttributeListCreateView,
+    PlayerAttributeDetailView,
+    PlayerAttributeListCreateView,
     PlayerDetailView,
     PlayerListCreateView,
     PlayerRoleDetailView,
@@ -13,6 +17,7 @@ from apps.players.api.views import (
 
 _BASE_ROLE = "role"
 _BASE_PLAYER = "player"
+_BASE_ATTRIBUTE = "attribute"
 
 urlpatterns = [
     path(
@@ -44,5 +49,25 @@ urlpatterns = [
         f"{_BASE_PLAYER}/<int:player_id>/role/<int:role_id>/",
         PlayerRoleDetailView.as_view(),
         name="players-player-role-detail",
+    ),
+    path(
+        f"{_BASE_ATTRIBUTE}/",
+        AttributeListCreateView.as_view(),
+        name="players-attribute-list-create",
+    ),
+    path(
+        f"{_BASE_ATTRIBUTE}/<int:attribute_id>/",
+        AttributeDetailView.as_view(),
+        name="players-attribute-detail",
+    ),
+    path(
+        f"{_BASE_PLAYER}/<int:player_id>/attribute/",
+        PlayerAttributeListCreateView.as_view(),
+        name="players-player-attribute-list-create",
+    ),
+    path(
+        f"{_BASE_PLAYER}/<int:player_id>/attribute/<int:attribute_id>/",
+        PlayerAttributeDetailView.as_view(),
+        name="players-player-attribute-detail",
     ),
 ]
