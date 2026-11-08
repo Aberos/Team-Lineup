@@ -1,7 +1,9 @@
 """Root URL configuration for the TeamLineup project."""
 
+from django.conf import settings
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
+from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 _API = "api/v1/"
@@ -18,3 +20,12 @@ urlpatterns = [
     path(f"{_API}", include("apps.players.api.urls")),
     path(f"{_API}", include("apps.events.api.urls")),
 ]
+
+if settings.FRONTEND_INDEX.exists():
+    urlpatterns += [
+        re_path(
+            r"^(?!api/|admin/|static/).*$",
+            TemplateView.as_view(template_name="index.html"),
+            name="frontend",
+        ),
+    ]

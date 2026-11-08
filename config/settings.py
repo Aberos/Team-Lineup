@@ -77,17 +77,30 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "config.urls"
 
+FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
+FRONTEND_INDEX = FRONTEND_DIST / "index.html"
+
+_BASE_TEMPLATE_LOADERS = [
+    "django.template.loaders.filesystem.Loader",
+    "django.template.loaders.app_directories.Loader",
+]
+_TEMPLATE_LOADERS: list[str | tuple[str, list[str]]] = (
+    list(_BASE_TEMPLATE_LOADERS)
+    if DEBUG
+    else [("django.template.loaders.cached.Loader", _BASE_TEMPLATE_LOADERS)]
+)
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
-        "APP_DIRS": True,
+        "DIRS": [FRONTEND_DIST],
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
             ],
+            "loaders": _TEMPLATE_LOADERS,
         },
     },
 ]
@@ -147,6 +160,7 @@ _static_prefix = SCRIPT_PREFIX.rstrip("/") if SCRIPT_PREFIX else ""
 STATIC_URL = f"{_static_prefix}/static/"
 MEDIA_URL = f"{_static_prefix}/media/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [FRONTEND_DIST] if FRONTEND_DIST.exists() else []
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 APPLICATION_NAME = "Team Lineup"

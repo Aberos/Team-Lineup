@@ -32,6 +32,12 @@ media/
 staticfiles/
 
 # =========================
+# Frontend
+# =========================
+frontend/node_modules/
+frontend/dist/
+
+# =========================
 # Environment Variables
 # =========================
 .env

@@ -15,3 +15,7 @@ media
 staticfiles
 dist
 build
+frontend/node_modules
+frontend/dist
+.ruff_cache
+.mypy_cache

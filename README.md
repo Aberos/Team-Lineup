@@ -1,131 +1,145 @@
 # TeamLineup
 
-API para gerenciamento de jogadores, eventos e escalações, desenvolvida com Django e Django REST Framework.
+Sistema para organizar eventos esportivos: cadastro de jogadores, inscrição em eventos, montagem de times e registro de partidas.
 
-## Requisitos
+## Funcionalidades
 
-- Docker e Docker Compose
-- VS Code com a extensão Python Debugger para depuração
+- Cadastro de jogadores e das funções (posições) em que atuam
+- Eventos com data e local
+- Inscrição de jogadores nos eventos, com pontuação
+- Montagem de times dentro de cada evento
+- Partidas entre os times, com placar e situação
+- Login com JWT
 
-## Configuração
+## Tecnologias
 
-Crie o arquivo de configuração na raiz do projeto:
+- **Backend:** Python 3.12, Django 6, Django REST Framework, Simple JWT e drf-spectacular
+- **Banco de dados:** PostgreSQL 17
+- **Frontend:** React, TypeScript, Vite, Tailwind CSS e shadcn/ui
+- **Ambiente:** Docker e Docker Compose
+
+## Estrutura
+
+```
+apps/
+  core/       autenticação e dados do usuário
+  players/    jogadores e funções
+  events/     eventos, participantes, times e partidas
+config/       configurações do Django
+frontend/     aplicação React
+scripts/      script de inicialização do container
+```
+
+## Como executar
+
+Copie o arquivo de exemplo e ajuste as variáveis:
 
 ```sh
 cp .env.example .env
 ```
 
-Se o `.env` já existir, atualize as variáveis nele. Defina a chave da aplicação e as credenciais do PostgreSQL antes de iniciar os serviços.
-
-| Variável | Descrição |
-| --- | --- |
-| `DJANGO_SECRET_KEY` | Chave da aplicação |
-| `DJANGO_ALLOWED_HOSTS` | Hosts permitidos, separados por vírgula |
-| `POSTGRES_DB` | Nome do banco |
-| `POSTGRES_USER` | Usuário do banco |
-| `POSTGRES_PASSWORD` | Senha do banco |
-| `DB_POOL_SIZE` | Limite de conexões por pool |
-| `APP_PORT` | Porta HTTP, inicialmente `8000` |
-| `DEBUG_PORT` | Porta do debugger, inicialmente `5678` |
-| `BIND_HOST` | Interface de publicação das portas, inicialmente `127.0.0.1` |
-| `APP_PREFIX` | Prefixo de URL quando a aplicação estiver atrás de um proxy |
-
-O Compose conecta a aplicação ao PostgreSQL em `db:5432` e habilita `DJANGO_DEBUG`. Fora do Docker, o Django usa `POSTGRES_HOST`, `POSTGRES_PORT` e `DJANGO_DEBUG` do ambiente. As variáveis `POSTGRES_*` têm prioridade sobre `DATABASE_URL` quando `POSTGRES_DB` está definida.
-
-## Execução
+Suba os serviços:
 
 ```sh
 docker compose up --build -d
 ```
 
-As migrações são aplicadas na inicialização, após o banco estar disponível. Com as portas do `.env.example`, os endereços são:
+Na inicialização, o container instala as dependências do frontend, gera o build, aplica as migrações e inicia o Django. Endereços:
 
+- Aplicação: http://localhost:8000/
 - API: http://localhost:8000/api/v1/
-- Documentação: http://localhost:8000/api/v1/docs/
-- Administração: http://localhost:8000/admin/
+- Documentação da API: http://localhost:8000/api/v1/docs/
+- Admin: http://localhost:8000/admin/
 
-Para acompanhar os logs:
+Para ver os logs e para parar os serviços:
 
 ```sh
 docker compose logs -f app
+docker compose down
 ```
 
-Para criar um administrador:
+Os dados do banco ficam no volume `postgres_data`.
+
+## Criar superusuário
+
+Com os serviços em execução, crie o usuário administrador. Ele é usado para entrar na aplicação e no admin do Django:
 
 ```sh
 docker compose exec app python manage.py createsuperuser
 ```
 
-Para encerrar os serviços:
+O comando pede usuário, e-mail e senha. Para criar sem perguntas, informe os dados por variáveis de ambiente:
 
 ```sh
-docker compose down
+docker compose exec \
+  -e DJANGO_SUPERUSER_USERNAME=admin \
+  -e DJANGO_SUPERUSER_EMAIL=admin@example.com \
+  -e DJANGO_SUPERUSER_PASSWORD=troque-esta-senha \
+  app python manage.py createsuperuser --noinput
 ```
 
-Os dados permanecem no volume `postgres_data`. As credenciais de inicialização do PostgreSQL são aplicadas apenas quando o volume está vazio. Em um banco existente, a alteração das credenciais deve ser feita também no PostgreSQL.
+## Variáveis de ambiente
 
-## Depuração
+| Variável | Descrição |
+| --- | --- |
+| `DJANGO_SECRET_KEY` | Chave secreta do Django |
+| `DJANGO_ALLOWED_HOSTS` | Hosts permitidos, separados por vírgula |
+| `POSTGRES_DB` | Nome do banco |
+| `POSTGRES_USER` | Usuário do banco |
+| `POSTGRES_PASSWORD` | Senha do banco |
+| `DB_POOL_SIZE` | Limite de conexões do pool |
+| `APP_PORT` | Porta da aplicação (padrão `8000`) |
+| `DEBUG_PORT` | Porta do debugger (padrão `5678`) |
+| `BIND_HOST` | Interface onde as portas são publicadas (padrão `127.0.0.1`) |
+| `APP_PREFIX` | Prefixo de URL quando a aplicação roda atrás de um proxy |
 
-Com os serviços em execução, selecione **Django: Docker (attach)** no painel **Executar e Depurar** do VS Code e pressione **F5**. Defina os breakpoints e faça uma requisição à aplicação.
+## Desenvolvimento
 
-Se alterar `DEBUG_PORT`, atualize `connect.port` em `.vscode/launch.json` com o mesmo valor.
+### Frontend
 
-O código local é montado em `/app`. Como o servidor roda com `--noreload`, reinicie a aplicação após alterações e reconecte o debugger:
+Com o Docker em execução, o frontend é recompilado a cada alteração; basta recarregar a página.
+
+Para usar o servidor do Vite com recarga instantânea (em http://localhost:5173/, com o backend rodando na porta 8000):
 
 ```sh
-docker compose restart app
+cd frontend
+npm install
+npm run dev
 ```
 
-`BIND_HOST=127.0.0.1` restringe o acesso à máquina local. O valor `0.0.0.0` publica as portas HTTP e de debug em todas as interfaces de rede.
+### Testes e qualidade
 
-## Pre-commit
-
-Os hooks executam Black, Ruff e Mypy com as configurações do `pyproject.toml`.
-Black e Ruff podem alterar os arquivos; revise as alterações antes do commit.
-
-Construa a imagem e valide a configuração:
+Backend:
 
 ```sh
-docker compose build app
-docker compose run --rm --no-deps app pre-commit validate-config
-```
-
-Execute os hooks em todos os arquivos versionados, sem iniciar o banco:
-
-```sh
+docker compose exec app python manage.py test
 docker compose run --rm --no-deps app pre-commit run --all-files
 ```
 
-Para executar apenas um hook, informe `black`, `ruff` ou `mypy`:
+Frontend:
 
 ```sh
-docker compose run --rm --no-deps app pre-commit run mypy --all-files
+cd frontend
+npm run lint
+npm run typecheck
+npm run test -- --run
 ```
 
-A primeira execução baixa os repositórios e instala as dependências dos hooks.
-
-### Execução sem verificação SSL
-
-Para executar com a verificação SSL desativada apenas no Git:
-
-```sh
-docker compose run --rm --no-deps -e GIT_SSL_NO_VERIFY=true app pre-commit run --all-files
-```
-
-Se o pip também apresentar erro de certificado ao instalar as dependências dos
-hooks, adicione `PIP_TRUSTED_HOST` para os hosts do PyPI:
-
-```sh
-docker compose run --rm --no-deps -e GIT_SSL_NO_VERIFY=true -e PIP_TRUSTED_HOST="pypi.org files.pythonhosted.org" app pre-commit run --all-files
-```
-
-Essas opções valem apenas para o comando executado. Para uso regular, configure
-o certificado da rede.
-
-A execução via Docker é manual. Para executar os hooks automaticamente no
-`git commit` feito no host, instale o pre-commit no ambiente Python local:
+Para rodar o pre-commit automaticamente a cada commit:
 
 ```sh
 python -m pip install ".[dev]"
 pre-commit install
 ```
+
+### Depuração
+
+Com os serviços em execução, use a configuração **Django: Docker (attach)** do VS Code (F5). Como o servidor roda sem recarga automática, reinicie após alterar o backend:
+
+```sh
+docker compose restart app
+```
+
+## Produção
+
+A imagem gerada pelo `Dockerfile` já inclui o build do frontend e os arquivos estáticos coletados. Quando `APP_PREFIX` estiver definido, o proxy deve remover o prefixo antes de repassar as requisições e servir `<APP_PREFIX>/static/` a partir da pasta `staticfiles/`.
