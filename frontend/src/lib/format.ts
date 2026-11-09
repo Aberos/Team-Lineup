@@ -15,3 +15,13 @@ export function todayIso(): string {
   const day = String(now.getDate()).padStart(2, "0")
   return `${now.getFullYear()}-${month}-${day}`
 }
+
+const DATE_TIME_FORMAT = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
+})
+
+export function formatDateTime(isoDateTime: string): string {
+  const date = new Date(isoDateTime)
+  return Number.isNaN(date.getTime()) ? isoDateTime : DATE_TIME_FORMAT.format(date)
+}

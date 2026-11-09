@@ -1,26 +1,41 @@
 """Services for authentication and authenticated user data."""
 
+from dataclasses import dataclass
+
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.exceptions import InvalidCredentialsError
 from apps.core.repository import UserRepository
+
+
+@dataclass(frozen=True)
+class LoginTokens:
+    """Tokens issued by a successful login.
+
+    Attributes:
+        access: Short-lived JWT used in the Authorization header.
+        refresh: Long-lived JWT used to obtain new access tokens.
+    """
+
+    access: str
+    refresh: str
 
 
 class CoreService:
     """Business rules for authentication and user data."""
 
     @staticmethod
-    def login(username: str, password: str) -> str:
-        """Authenticate the user and issue an access token.
+    def login(username: str, password: str) -> LoginTokens:
+        """Authenticate the user and issue access and refresh tokens.
 
         Args:
             username: Username of the account.
             password: Password of the account.
 
         Returns:
-            The encoded JWT access token.
+            The encoded JWT access and refresh tokens.
 
         Raises:
             InvalidCredentialsError: If the credentials are invalid or the
@@ -29,7 +44,10 @@ class CoreService:
         user = authenticate(username=username, password=password)
         if user is None:
             raise InvalidCredentialsError
-        return str(AccessToken.for_user(user))
+        refresh = RefreshToken.for_user(user)
+        return LoginTokens(
+            access=str(refresh.access_token), refresh=str(refresh)
+        )
 
     @staticmethod
     def change_password(

@@ -14,6 +14,7 @@ class CoreLoginResponseSerializer(serializers.Serializer):
     """Format the login response."""
 
     token = serializers.CharField(read_only=True)
+    refresh = serializers.CharField(read_only=True)
 
 
 class CoreUserInfoSerializer(serializers.Serializer):
@@ -23,6 +24,7 @@ class CoreUserInfoSerializer(serializers.Serializer):
     first_name = serializers.CharField(read_only=True)
     last_name = serializers.CharField(read_only=True)
     email = serializers.EmailField(read_only=True)
+    is_staff = serializers.BooleanField(read_only=True)
 
 
 class CoreChangePasswordSerializer(serializers.Serializer):

@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from "react-router"
 
 import { AppShell } from "@/components/layout/AppShell"
 import { ProtectedRoute } from "@/features/auth/ProtectedRoute"
+import { StaffRoute } from "@/features/auth/StaffRoute"
 import { APP_PREFIX } from "@/lib/app-prefix"
 
 export const router = createBrowserRouter(
@@ -54,6 +55,18 @@ export const router = createBrowserRouter(
                 Component: (await import("@/features/players/AttributesPage"))
                   .AttributesPage,
               }),
+            },
+            {
+              element: <StaffRoute />,
+              children: [
+                {
+                  path: "settings/formula",
+                  lazy: async () => ({
+                    Component: (await import("@/features/formula/FormulaPage"))
+                      .FormulaPage,
+                  }),
+                },
+              ],
             },
             {
               path: "roles",

@@ -17,6 +17,7 @@ import { useIdParam } from "@/lib/use-id-param"
 import { useDeletePlayer, usePlayer } from "./hooks"
 import { PlayerAttributesCard } from "./PlayerAttributesCard"
 import { PlayerFormDialog } from "./PlayerFormDialog"
+import { PlayerPhotoField } from "./PlayerPhotoField"
 import { PlayerRolesCard } from "./PlayerRolesCard"
 
 type PlayerDetailContentProps = {
@@ -53,6 +54,11 @@ function PlayerDetailContent({ playerId }: PlayerDetailContentProps) {
   }
 
   const details = [
+    {
+      label: "Nota geral",
+      value:
+        player.data.overall === null ? "Sem avaliação" : String(player.data.overall),
+    },
     { label: "Número", value: String(player.data.number) },
     { label: "Nascimento", value: formatDate(player.data.birthday) },
     { label: "Telefone", value: player.data.phone },
@@ -77,7 +83,8 @@ function PlayerDetailContent({ playerId }: PlayerDetailContentProps) {
         }
       />
       <Card>
-        <CardContent>
+        <CardContent className="space-y-6">
+          <PlayerPhotoField player={player.data} />
           <dl className="grid gap-4 sm:grid-cols-2">
             {details.map((detail) => (
               <div key={detail.label}>

@@ -4,13 +4,15 @@ Sistema para organizar eventos esportivos: cadastro de jogadores, inscrição em
 
 ## Funcionalidades
 
-- Cadastro de jogadores e das funções (posições) em que atuam
-- Atributos dos jogadores (ex.: velocidade, passe), com nota de 0 a 100
+- Cadastro de jogadores, com foto, e das funções (posições) em que atuam, com uma função principal
+- Atributos dos jogadores (ex.: velocidade, passe), com nota de 0 a 100; até 6 aparecem na carta do jogador, com sigla e posição
+- Nota geral do jogador calculada pela média dos atributos da carta ou por uma fórmula em Lua configurada pelo administrador
+- Listagem de jogadores paginada, com busca por nome, filtro por função e ordenação
 - Eventos com data e local
 - Inscrição de jogadores nos eventos, com pontuação
 - Montagem de times dentro de cada evento
 - Partidas entre os times, com placar e situação
-- Login com JWT
+- Login com JWT, com opções de manter conectado e lembrar o usuário
 
 ## Tecnologias
 
@@ -92,6 +94,20 @@ docker compose exec \
   app python manage.py createsuperuser --noinput
 ```
 
+## Fórmula da nota geral
+
+Usuários administradores (`is_staff`, os mesmos que acessam o admin do Django) veem o menu **Fórmula**, onde escrevem em Lua como a nota geral é calculada. O script define `overall(notas, funcoes, principal)` e retorna um número de 0 a 100, ou `nil` para "sem avaliação":
+
+```lua
+function overall(notas, funcoes, principal)
+  local base = notas.VEL or 0
+  if principal == "DEF" then base = base + 10 end
+  return math.min(100, base)
+end
+```
+
+Cada fórmula salva vira uma versão; antes de ativar, é possível testá-la com os jogadores cadastrados. A ativação roda a fórmula em todos os jogadores e só acontece se ela funcionar para todos. O script roda em um ambiente isolado, sem acesso a arquivos, rede ou sistema, com limite de instruções e de memória. Sem fórmula ativa, vale a média simples.
+
 ## Variáveis de ambiente
 
 | Variável | Descrição |
@@ -106,6 +122,8 @@ docker compose exec \
 | `DEBUG_PORT` | Porta do debugger (padrão `5678`) |
 | `BIND_HOST` | Interface onde as portas são publicadas (padrão `127.0.0.1`) |
 | `APP_PREFIX` | Prefixo de URL quando a aplicação roda atrás de um proxy |
+| `JWT_ACCESS_MINUTES` | Validade do token de acesso, em minutos (padrão `15`) |
+| `JWT_REFRESH_DAYS` | Validade da sessão com "Manter conectado", em dias (padrão `7`); cada uso renova o prazo |
 
 ## Desenvolvimento
 
@@ -156,4 +174,4 @@ docker compose restart app
 
 ## Produção
 
-A imagem gerada pelo `Dockerfile` já inclui o build do frontend e os arquivos estáticos coletados. Quando `APP_PREFIX` estiver definido, o proxy deve remover o prefixo antes de repassar as requisições e servir `<APP_PREFIX>/static/` a partir da pasta `staticfiles/`.
+A imagem gerada pelo `Dockerfile` já inclui o build do frontend e os arquivos estáticos coletados. As fotos dos jogadores são gravadas em `media/` (no Docker, dentro do projeto montado em `/app`); em produção, essa pasta precisa de armazenamento persistente e o proxy deve servir `<APP_PREFIX>/media/` a partir dela. Quando `APP_PREFIX` estiver definido, o proxy deve remover o prefixo antes de repassar as requisições e servir `<APP_PREFIX>/static/` a partir da pasta `staticfiles/`.

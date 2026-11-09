@@ -1,6 +1,6 @@
 """DRF API views for the core app."""
 
-from typing import cast
+from typing import Any, cast
 
 from django.contrib.auth.models import User
 from drf_spectacular.utils import extend_schema
@@ -9,6 +9,11 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.serializers import (
+    TokenBlacklistSerializer,
+    TokenRefreshSerializer,
+)
+from rest_framework_simplejwt.views import TokenBlacklistView, TokenRefreshView
 
 from apps.core.exceptions import InvalidCredentialsError
 from apps.core.serializers import (
@@ -30,7 +35,10 @@ class CoreLoginView(APIView):
 
     @extend_schema(
         tags=[_AUTH_TAG],
-        description="Authenticate with username and password.",
+        description=(
+            "Authenticate with username and password. Returns the access "
+            "token and the refresh token used by auth/refresh/."
+        ),
         request=CoreLoginSerializer,
         responses={200: CoreLoginResponseSerializer, 400: None},
     )
@@ -39,7 +47,7 @@ class CoreLoginView(APIView):
         serializer = CoreLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            token = CoreService.login(
+            tokens = CoreService.login(
                 username=serializer.validated_data["username"],
                 password=serializer.validated_data["password"],
             )
@@ -49,7 +57,9 @@ class CoreLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(
-            CoreLoginResponseSerializer({"token": token}).data,
+            CoreLoginResponseSerializer(
+                {"token": tokens.access, "refresh": tokens.refresh}
+            ).data,
             status=status.HTTP_200_OK,
         )
 
@@ -131,3 +141,34 @@ class CoreAuthenticatedUserChangeNameView(APIView):
         return Response(
             CoreUserInfoSerializer(user).data, status=status.HTTP_200_OK
         )
+
+
+class CoreTokenRefreshView(TokenRefreshView):
+    """Issue a new access token from a refresh token."""
+
+    @extend_schema(
+        tags=[_AUTH_TAG],
+        description=(
+            "Exchange a refresh token for a new access token and a new "
+            "refresh token. The refresh token sent is invalidated."
+        ),
+        request=TokenRefreshSerializer,
+        responses={200: TokenRefreshSerializer, 400: None, 401: None},
+    )
+    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Return the rotated tokens."""
+        return super().post(request, *args, **kwargs)
+
+
+class CoreLogoutView(TokenBlacklistView):
+    """End a long session by invalidating its refresh token."""
+
+    @extend_schema(
+        tags=[_AUTH_TAG],
+        description="Invalidate the refresh token of the session.",
+        request=TokenBlacklistSerializer,
+        responses={200: None, 400: None, 401: None},
+    )
+    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Blacklist the refresh token sent in the body."""
+        return super().post(request, *args, **kwargs)

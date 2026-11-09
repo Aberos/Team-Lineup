@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { mockApi, type ApiHandlers } from "@/test/mock-api"
+import { mockApi, page, type ApiHandlers } from "@/test/mock-api"
 import { jsonResponse, renderWithProviders } from "@/test/render"
 
 import { EventDetailPage } from "./EventDetailPage"
@@ -18,7 +18,7 @@ const BASE_HANDLERS: ApiHandlers = {
   "GET /event/3/participant/": [],
   "GET /event/3/team/": [],
   "GET /event/3/match/": [],
-  "GET /player/": [ANA, BIA],
+  "GET /player/": page([ANA, BIA]),
 }
 
 const renderDetail = () =>
@@ -56,6 +56,32 @@ describe("EventDetailPage", () => {
         score: 0,
       }),
     )
+  })
+
+  it("busca jogadores pelo nome ao adicionar participante", async () => {
+    const api = mockApi({
+      ...BASE_HANDLERS,
+      "GET /player/": ({ query }) =>
+        jsonResponse(page(query.get("search") === "bi" ? [BIA] : [ANA, BIA])),
+    })
+    renderDetail()
+    await screen.findByText("Nenhum participante inscrito.")
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Adicionar participante" }),
+    )
+    await userEvent.type(screen.getByLabelText("Buscar jogador"), "bi")
+
+    await waitFor(() => {
+      const select = within(screen.getByLabelText("Jogador"))
+      expect(select.getByText("7 - Bia")).toBeInTheDocument()
+      expect(select.queryByText("10 - Ana")).not.toBeInTheDocument()
+    })
+    expect(
+      api.calls.some(
+        (call) => call.path === "/player/" && call.query.get("search") === "bi",
+      ),
+    ).toBe(true)
   })
 
   it("oferece para o time só participantes sem time", async () => {

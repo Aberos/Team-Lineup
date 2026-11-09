@@ -15,7 +15,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { usePlayers } from "@/features/players/hooks"
 import { useConfirmState } from "@/lib/use-confirm-state"
 
 import { AddParticipantDialog } from "./AddParticipantDialog"
@@ -29,7 +28,6 @@ type ParticipantsTabProps = {
 
 export function ParticipantsTab({ eventId }: ParticipantsTabProps) {
   const participants = useParticipants(eventId)
-  const players = usePlayers()
   const removeParticipant = useRemoveParticipant(eventId)
   const confirm = useConfirmState<Participant>()
   const [addOpen, setAddOpen] = useState(false)
@@ -38,12 +36,6 @@ export function ParticipantsTab({ eventId }: ParticipantsTabProps) {
   const participantIds = new Set(
     participants.data?.map((participant) => participant.player.id),
   )
-  const playerOptions = (players.data ?? [])
-    .filter((player) => !participantIds.has(player.id))
-    .map((player) => ({
-      value: String(player.id),
-      label: `${player.number} - ${player.name}`,
-    }))
 
   const handleRemove = () => {
     const participant = confirm.target
@@ -60,10 +52,7 @@ export function ParticipantsTab({ eventId }: ParticipantsTabProps) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button
-          onClick={() => setAddOpen(true)}
-          disabled={playerOptions.length === 0}
-        >
+        <Button onClick={() => setAddOpen(true)}>
           <Plus />
           Adicionar participante
         </Button>
@@ -124,7 +113,7 @@ export function ParticipantsTab({ eventId }: ParticipantsTabProps) {
       <AddParticipantDialog
         eventId={eventId}
         open={addOpen}
-        playerOptions={playerOptions}
+        participantIds={participantIds}
         onOpenChange={setAddOpen}
       />
       <ScoreDialog

@@ -2,7 +2,7 @@
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from apps.core.exceptions import InvalidCredentialsError
 from apps.core.service import CoreService
@@ -16,11 +16,16 @@ class CoreServiceTests(TestCase):
             username="tester", password="secret-pass"
         )
 
-    def test_login_returns_access_token(self) -> None:
-        """Issue an access token for valid credentials."""
-        token = CoreService.login(username="tester", password="secret-pass")
+    def test_login_returns_access_and_refresh_tokens(self) -> None:
+        """Issue access and refresh tokens for valid credentials."""
+        tokens = CoreService.login(username="tester", password="secret-pass")
 
-        self.assertEqual(AccessToken(token)["user_id"], str(self.user.id))
+        self.assertEqual(
+            AccessToken(tokens.access)["user_id"], str(self.user.id)
+        )
+        self.assertEqual(
+            RefreshToken(tokens.refresh)["user_id"], str(self.user.id)
+        )
 
     def test_login_invalid_credentials_raises(self) -> None:
         """Raise InvalidCredentialsError for a wrong password."""

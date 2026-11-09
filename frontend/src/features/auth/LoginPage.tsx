@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { useNavigate } from "react-router"
 
+import { FormCheckboxField } from "@/components/common/FormCheckboxField"
 import { FormTextField } from "@/components/common/FormTextField"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { FieldError, FieldGroup } from "@/components/ui/field"
+import { authStorage } from "@/lib/auth-storage"
 import { applyApiErrors } from "@/lib/form-errors"
 
 import { useLogin } from "./hooks"
@@ -19,12 +21,22 @@ import { loginSchema, type LoginValues } from "./schemas"
 
 const LOGIN_FIELDS = ["username", "password"] as const
 
+function initialValues(): LoginValues {
+  const rememberedUsername = authStorage.getRememberedUsername()
+  return {
+    username: rememberedUsername ?? "",
+    password: "",
+    keepSignedIn: false,
+    rememberUsername: rememberedUsername !== null,
+  }
+}
+
 export function LoginPage() {
   const navigate = useNavigate()
   const login = useLogin()
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { username: "", password: "" },
+    defaultValues: initialValues(),
   })
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -60,7 +72,22 @@ export function LoginPage() {
                 id="login-password"
                 type="password"
                 autoComplete="current-password"
+                autoFocus={authStorage.getRememberedUsername() !== null}
               />
+              <div className="flex flex-col gap-3">
+                <FormCheckboxField
+                  control={form.control}
+                  name="keepSignedIn"
+                  label="Manter conectado"
+                  id="login-keep-signed-in"
+                />
+                <FormCheckboxField
+                  control={form.control}
+                  name="rememberUsername"
+                  label="Lembrar meu usuário"
+                  id="login-remember-username"
+                />
+              </div>
               {form.formState.errors.root && (
                 <FieldError>{form.formState.errors.root.message}</FieldError>
               )}

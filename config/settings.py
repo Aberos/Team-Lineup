@@ -2,6 +2,7 @@
 
 import os
 import urllib.parse
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,8 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "5"))
+JWT_ACCESS_MINUTES = int(os.getenv("JWT_ACCESS_MINUTES", "15"))
+JWT_REFRESH_DAYS = int(os.getenv("JWT_REFRESH_DAYS", "7"))
 _POOL_OPTIONS = {
     "POOL_SIZE": DB_POOL_SIZE,
     "MAX_OVERFLOW": 0,
@@ -59,6 +62,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
     "apps.core",
     "apps.players",
@@ -160,6 +164,7 @@ _static_prefix = SCRIPT_PREFIX.rstrip("/") if SCRIPT_PREFIX else ""
 STATIC_URL = f"{_static_prefix}/static/"
 MEDIA_URL = f"{_static_prefix}/media/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+MEDIA_ROOT = BASE_DIR / "media"
 STATICFILES_DIRS = [FRONTEND_DIST] if FRONTEND_DIST.exists() else []
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -173,6 +178,13 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=JWT_ACCESS_MINUTES),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=JWT_REFRESH_DAYS),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 SPECTACULAR_SETTINGS = {

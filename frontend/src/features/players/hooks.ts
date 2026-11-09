@@ -1,16 +1,38 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 
 import { attributesApi, playersApi, rolesApi } from "./api"
-import type { AttributePayload, PlayerPayload, RolePayload } from "./types"
+import type {
+  AttributePayload,
+  PlayerListParams,
+  PlayerPayload,
+  RolePayload,
+} from "./types"
+
+export const PLAYER_PAGE_SIZE = 24
+const PLAYER_SEARCH_SIZE = 20
 
 const ROLES_KEY = ["players", "roles"] as const
 const PLAYERS_KEY = ["players", "list"] as const
 const ATTRIBUTES_KEY = ["players", "attributes"] as const
 
 const playerKey = (id: number) => ["players", "detail", id] as const
-const playerRolesKey = (id: number) => ["players", "detail", id, "roles"] as const
+const playerRolesKey = (id: number) => [...playerKey(id), "roles"] as const
 const playerAttributesKey = (id: number) =>
-  ["players", "detail", id, "attributes"] as const
+  [...playerKey(id), "attributes"] as const
+
+function useInvalidatePlayer(playerId: number) {
+  const queryClient = useQueryClient()
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: playerKey(playerId) }),
+      queryClient.invalidateQueries({ queryKey: PLAYERS_KEY }),
+    ])
+}
 
 export function useRoles() {
   return useQuery({ queryKey: ROLES_KEY, queryFn: rolesApi.list })
@@ -29,7 +51,7 @@ export function useUpdateRole() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: RolePayload }) =>
       rolesApi.update(id, payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ROLES_KEY }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["players"] }),
   })
 }
 
@@ -41,8 +63,29 @@ export function useDeleteRole() {
   })
 }
 
-export function usePlayers() {
-  return useQuery({ queryKey: PLAYERS_KEY, queryFn: playersApi.list })
+export function usePlayerPages(
+  filters: Omit<PlayerListParams, "page" | "pageSize">,
+) {
+  return useInfiniteQuery({
+    queryKey: [...PLAYERS_KEY, filters],
+    queryFn: ({ pageParam }) =>
+      playersApi.list({
+        ...filters,
+        page: pageParam,
+        pageSize: PLAYER_PAGE_SIZE,
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.next === null ? undefined : lastPage.page + 1,
+  })
+}
+
+export function usePlayerSearch(search: string) {
+  return useQuery({
+    queryKey: [...PLAYERS_KEY, "search", search],
+    queryFn: () =>
+      playersApi.list({ search, pageSize: PLAYER_SEARCH_SIZE }),
+  })
 }
 
 export function usePlayer(id: number) {
@@ -85,21 +128,27 @@ export function usePlayerRoles(id: number) {
 }
 
 export function useAssignRole(playerId: number) {
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidatePlayer(playerId)
   return useMutation({
     mutationFn: (roleId: number) =>
       playersApi.assignRole(playerId, { role_id: roleId }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: playerRolesKey(playerId) }),
+    onSuccess: invalidate,
+  })
+}
+
+export function useSetPrimaryRole(playerId: number) {
+  const invalidate = useInvalidatePlayer(playerId)
+  return useMutation({
+    mutationFn: (roleId: number) => playersApi.setPrimaryRole(playerId, roleId),
+    onSuccess: invalidate,
   })
 }
 
 export function useRemoveRole(playerId: number) {
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidatePlayer(playerId)
   return useMutation({
     mutationFn: (roleId: number) => playersApi.removeRole(playerId, roleId),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: playerRolesKey(playerId) }),
+    onSuccess: invalidate,
   })
 }
 
@@ -111,8 +160,7 @@ export function useCreateAttribute() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (payload: AttributePayload) => attributesApi.create(payload),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ATTRIBUTES_KEY }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["players"] }),
   })
 }
 
@@ -141,7 +189,7 @@ export function usePlayerAttributes(playerId: number) {
 }
 
 export function useRatePlayer(playerId: number) {
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidatePlayer(playerId)
   return useMutation({
     mutationFn: ({
       attributeId,
@@ -151,15 +199,12 @@ export function useRatePlayer(playerId: number) {
       value: number
     }) =>
       playersApi.rateAttribute(playerId, { attribute_id: attributeId, value }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: playerAttributesKey(playerId),
-      }),
+    onSuccess: invalidate,
   })
 }
 
 export function useUpdateRating(playerId: number) {
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidatePlayer(playerId)
   return useMutation({
     mutationFn: ({
       attributeId,
@@ -168,21 +213,37 @@ export function useUpdateRating(playerId: number) {
       attributeId: number
       value: number
     }) => playersApi.updateAttribute(playerId, attributeId, { value }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: playerAttributesKey(playerId),
-      }),
+    onSuccess: invalidate,
   })
 }
 
 export function useRemoveRating(playerId: number) {
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidatePlayer(playerId)
   return useMutation({
     mutationFn: (attributeId: number) =>
       playersApi.removeAttribute(playerId, attributeId),
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: playerAttributesKey(playerId),
-      }),
+    onSuccess: invalidate,
+  })
+}
+
+export function useUploadPhoto(playerId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (photo: File) => playersApi.uploadPhoto(playerId, photo),
+    onSuccess: (player) => {
+      queryClient.setQueryData(playerKey(player.id), player)
+      return queryClient.invalidateQueries({ queryKey: PLAYERS_KEY })
+    },
+  })
+}
+
+export function useRemovePhoto(playerId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => playersApi.removePhoto(playerId),
+    onSuccess: (player) => {
+      queryClient.setQueryData(playerKey(player.id), player)
+      return queryClient.invalidateQueries({ queryKey: PLAYERS_KEY })
+    },
   })
 }

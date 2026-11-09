@@ -5,10 +5,16 @@ from django.urls import path
 from apps.players.api.views import (
     AttributeDetailView,
     AttributeListCreateView,
+    OverallFormulaActivateView,
+    OverallFormulaActiveView,
+    OverallFormulaDetailView,
+    OverallFormulaListCreateView,
+    OverallFormulaPreviewView,
     PlayerAttributeDetailView,
     PlayerAttributeListCreateView,
     PlayerDetailView,
     PlayerListCreateView,
+    PlayerPhotoView,
     PlayerRoleDetailView,
     PlayerRoleListCreateView,
     RoleDetailView,
@@ -18,6 +24,7 @@ from apps.players.api.views import (
 _BASE_ROLE = "role"
 _BASE_PLAYER = "player"
 _BASE_ATTRIBUTE = "attribute"
+_BASE_FORMULA = "overall-formula"
 
 urlpatterns = [
     path(
@@ -69,5 +76,35 @@ urlpatterns = [
         f"{_BASE_PLAYER}/<int:player_id>/attribute/<int:attribute_id>/",
         PlayerAttributeDetailView.as_view(),
         name="players-player-attribute-detail",
+    ),
+    path(
+        f"{_BASE_PLAYER}/<int:player_id>/photo/",
+        PlayerPhotoView.as_view(),
+        name="players-player-photo",
+    ),
+    path(
+        f"{_BASE_FORMULA}/",
+        OverallFormulaListCreateView.as_view(),
+        name="players-overall-formula-list-create",
+    ),
+    path(
+        f"{_BASE_FORMULA}/active/",
+        OverallFormulaActiveView.as_view(),
+        name="players-overall-formula-active",
+    ),
+    path(
+        f"{_BASE_FORMULA}/preview/",
+        OverallFormulaPreviewView.as_view(),
+        name="players-overall-formula-preview",
+    ),
+    path(
+        f"{_BASE_FORMULA}/<int:formula_id>/",
+        OverallFormulaDetailView.as_view(),
+        name="players-overall-formula-detail",
+    ),
+    path(
+        f"{_BASE_FORMULA}/<int:formula_id>/activate/",
+        OverallFormulaActivateView.as_view(),
+        name="players-overall-formula-activate",
     ),
 ]

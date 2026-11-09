@@ -9,4 +9,6 @@ export const authApi = {
       body: payload,
     }),
   me: () => apiRequest<CurrentUser>("/auth/me/"),
+  logout: (refresh: string) =>
+    apiRequest<null>("/auth/logout/", { method: "POST", body: { refresh } }),
 }

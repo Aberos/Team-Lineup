@@ -56,6 +56,37 @@ describe("PlayerDetailPage", () => {
     expect(within(select).getByText("Atacante")).toBeInTheDocument()
   })
 
+  it("marca a função principal e permite trocá-la", async () => {
+    const api = mockApi({
+      "GET /player/1/": PLAYER,
+      "GET /player/1/role/": [
+        { ...GOALKEEPER, is_primary: true },
+        { ...STRIKER, is_primary: false },
+      ],
+      "GET /role/": [GOALKEEPER, STRIKER],
+      ...NO_ATTRIBUTES,
+      "PATCH /player/1/role/6/": () =>
+        jsonResponse({ ...STRIKER, is_primary: true }),
+    })
+    renderDetail()
+
+    expect(await screen.findByText("Principal")).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", {
+        name: "Tornar Goleiro a função principal",
+      }),
+    ).not.toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole("button", { name: "Tornar Atacante a função principal" }),
+    )
+
+    await waitFor(() =>
+      expect(api.find("PATCH", "/player/1/role/6/")?.body).toEqual({
+        is_primary: true,
+      }),
+    )
+  })
+
   it("atribui uma função", async () => {
     const api = mockApi({
       "GET /player/1/": PLAYER,
@@ -208,3 +239,76 @@ describe("PlayerDetailPage atributos", () => {
     ).toHaveAttribute("href", "/attributes")
   })
 })
+
+describe("PlayerDetailPage foto", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const handlers = {
+    "GET /player/1/role/": [],
+    "GET /role/": [],
+    ...NO_ATTRIBUTES,
+  }
+
+  it("envia a foto escolhida como arquivo", async () => {
+    const api = mockApi({
+      ...handlers,
+      "GET /player/1/": { ...PLAYER, photo_url: null },
+      "PUT /player/1/photo/": () =>
+        jsonResponse({ ...PLAYER, photo_url: "/media/players/ana.png" }),
+    })
+    renderDetail()
+    await screen.findByRole("button", { name: "Enviar foto" })
+
+    const file = new File(["png"], "ana.png", { type: "image/png" })
+    await userEvent.upload(
+      screen.getByLabelText("Arquivo da foto do jogador"),
+      file,
+    )
+
+    await waitFor(() => {
+      const body = api.find("PUT", "/player/1/photo/")?.body
+      expect(body).toBeInstanceOf(FormData)
+      expect((body as FormData).get("photo")).toBe(file)
+    })
+  })
+
+  it("recusa arquivo grande sem chamar a API", async () => {
+    const api = mockApi({
+      ...handlers,
+      "GET /player/1/": { ...PLAYER, photo_url: null },
+    })
+    renderDetail()
+    await screen.findByRole("button", { name: "Enviar foto" })
+
+    const big = new File([new Uint8Array(2 * 1024 * 1024 + 1)], "big.png", {
+      type: "image/png",
+    })
+    await userEvent.upload(
+      screen.getByLabelText("Arquivo da foto do jogador"),
+      big,
+    )
+
+    expect(api.find("PUT", "/player/1/photo/")).toBeUndefined()
+  })
+
+  it("remove a foto existente", async () => {
+    const api = mockApi({
+      ...handlers,
+      "GET /player/1/": { ...PLAYER, photo_url: "/media/players/ana.png" },
+      "DELETE /player/1/photo/": () =>
+        jsonResponse({ ...PLAYER, photo_url: null }),
+    })
+    renderDetail()
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Remover foto" }),
+    )
+
+    await waitFor(() =>
+      expect(api.find("DELETE", "/player/1/photo/")).toBeDefined(),
+    )
+  })
+})
+

@@ -11,7 +11,11 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select"
 
-export type SelectOption = { value: string; label: string }
+export type SelectOption = {
+  value: string
+  label: string
+  disabled?: boolean
+}
 
 type FormSelectFieldProps<TInput extends FieldValues, TOutput> = {
   control: Control<TInput, unknown, TOutput>
@@ -51,7 +55,11 @@ export function FormSelectField<TInput extends FieldValues, TOutput>({
               <NativeSelectOption value="">{placeholder}</NativeSelectOption>
             )}
             {options.map((option) => (
-              <NativeSelectOption key={option.value} value={option.value}>
+              <NativeSelectOption
+                key={option.value}
+                value={option.value}
+                disabled={option.disabled}
+              >
                 {option.label}
               </NativeSelectOption>
             ))}

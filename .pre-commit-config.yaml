@@ -29,3 +29,5 @@ repos:
           - django-filter
           - djangorestframework-simplejwt
           - python-dotenv
+          - Pillow
+          - lupa

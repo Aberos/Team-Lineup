@@ -56,15 +56,29 @@ export const playerRoleSchema = z.object({
 export type PlayerRoleFormInput = z.input<typeof playerRoleSchema>
 export type PlayerRoleFormOutput = z.output<typeof playerRoleSchema>
 
+const ABBREVIATION_MAX_LENGTH = 4
+const LETTERS_ONLY = /^\p{L}+$/u
+
 export const attributeSchema = z.object({
   name: z
     .string()
     .trim()
     .min(1, "Informe o nome do atributo")
     .max(NAME_MAX_LENGTH, "Use no máximo 100 caracteres"),
+  abbreviation: z
+    .string()
+    .trim()
+    .min(1, "Informe a sigla")
+    .max(ABBREVIATION_MAX_LENGTH, "Use no máximo 4 letras")
+    .regex(LETTERS_ONLY, "Use apenas letras")
+    .transform((value) => value.toUpperCase()),
+  card_order: z
+    .string()
+    .transform((value) => (value === "" ? null : Number(value))),
 })
 
-export type AttributeValues = z.infer<typeof attributeSchema>
+export type AttributeFormInput = z.input<typeof attributeSchema>
+export type AttributeFormOutput = z.output<typeof attributeSchema>
 
 const ratingValue = z
   .string()

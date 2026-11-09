@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Plus, X } from "lucide-react"
+import { Plus, Star, X } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 
@@ -18,7 +18,13 @@ import { FieldError } from "@/components/ui/field"
 import { Skeleton } from "@/components/ui/skeleton"
 import { applyApiErrors } from "@/lib/form-errors"
 
-import { useAssignRole, usePlayerRoles, useRemoveRole, useRoles } from "./hooks"
+import {
+  useAssignRole,
+  usePlayerRoles,
+  useRemoveRole,
+  useRoles,
+  useSetPrimaryRole,
+} from "./hooks"
 import {
   playerRoleSchema,
   type PlayerRoleFormInput,
@@ -36,6 +42,7 @@ export function PlayerRolesCard({ playerId }: PlayerRolesCardProps) {
   const roles = useRoles()
   const assignRole = useAssignRole(playerId)
   const removeRole = useRemoveRole(playerId)
+  const setPrimaryRole = useSetPrimaryRole(playerId)
   const form = useForm<PlayerRoleFormInput, unknown, PlayerRoleFormOutput>({
     resolver: zodResolver(playerRoleSchema),
     defaultValues: { role_id: "" },
@@ -56,6 +63,13 @@ export function PlayerRolesCard({ playerId }: PlayerRolesCardProps) {
     }
   })
 
+  const handleSetPrimary = (roleId: number, roleName: string) => {
+    setPrimaryRole.mutate(roleId, {
+      onSuccess: () => toast.success(`"${roleName}" agora é a função principal`),
+      onError: () => toast.error("Não foi possível alterar a função principal."),
+    })
+  }
+
   const handleRemove = (roleId: number, roleName: string) => {
     removeRole.mutate(roleId, {
       onSuccess: () => toast.success(`Função "${roleName}" removida`),
@@ -67,7 +81,9 @@ export function PlayerRolesCard({ playerId }: PlayerRolesCardProps) {
     <Card>
       <CardHeader>
         <CardTitle>Funções</CardTitle>
-        <CardDescription>Posições em que o jogador atua.</CardDescription>
+        <CardDescription>
+          Posições em que o jogador atua. A principal aparece na carta.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {playerRoles.isPending && <Skeleton className="h-8 w-full" />}
@@ -80,21 +96,38 @@ export function PlayerRolesCard({ playerId }: PlayerRolesCardProps) {
           <EmptyState message="Nenhuma função atribuída." />
         )}
         {playerRoles.isSuccess && playerRoles.data.length > 0 && (
-          <ul className="flex flex-wrap gap-2">
+          <ul className="divide-y rounded-md border">
             {playerRoles.data.map((role) => (
-              <li key={role.id}>
-                <Badge variant="secondary" className="gap-1 pr-1">
+              <li
+                key={role.id}
+                className="flex items-center justify-between gap-2 px-3 py-1.5"
+              >
+                <span className="flex items-center gap-2 text-sm font-medium">
                   {role.name}
-                  <button
-                    type="button"
-                    className="rounded-sm p-0.5 hover:bg-muted-foreground/20"
+                  {role.is_primary && <Badge>Principal</Badge>}
+                </span>
+                <span className="flex">
+                  {!role.is_primary && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Tornar ${role.name} a função principal`}
+                      disabled={setPrimaryRole.isPending}
+                      onClick={() => handleSetPrimary(role.id, role.name)}
+                    >
+                      <Star />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     aria-label={`Remover ${role.name}`}
                     disabled={removeRole.isPending}
                     onClick={() => handleRemove(role.id, role.name)}
                   >
-                    <X className="size-3" />
-                  </button>
-                </Badge>
+                    <X />
+                  </Button>
+                </span>
               </li>
             ))}
           </ul>

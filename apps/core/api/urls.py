@@ -7,6 +7,8 @@ from apps.core.api.views import (
     CoreAuthenticatedUserChangePasswordView,
     CoreAuthenticatedUserInfoView,
     CoreLoginView,
+    CoreLogoutView,
+    CoreTokenRefreshView,
     CoreValidateTokenView,
 )
 
@@ -37,5 +39,15 @@ urlpatterns = [
         f"{_BASE_AUTH}/change-name/",
         CoreAuthenticatedUserChangeNameView.as_view(),
         name="core-auth-change-name",
+    ),
+    path(
+        f"{_BASE_AUTH}/refresh/",
+        CoreTokenRefreshView.as_view(),
+        name="core-auth-refresh",
+    ),
+    path(
+        f"{_BASE_AUTH}/logout/",
+        CoreLogoutView.as_view(),
+        name="core-auth-logout",
     ),
 ]

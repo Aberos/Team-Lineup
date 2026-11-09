@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog"
 import { EmptyState } from "@/components/common/EmptyState"
 import { ErrorAlert } from "@/components/common/ErrorAlert"
 import { PageHeader } from "@/components/common/PageHeader"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -74,6 +75,8 @@ export function AttributesPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Atributo</TableHead>
+              <TableHead className="w-20">Sigla</TableHead>
+              <TableHead className="w-28">Carta</TableHead>
               <TableHead className="w-24 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -81,6 +84,18 @@ export function AttributesPage() {
             {attributes.data.map((attribute) => (
               <TableRow key={attribute.id}>
                 <TableCell>{attribute.name}</TableCell>
+                <TableCell className="font-medium">
+                  {attribute.abbreviation}
+                </TableCell>
+                <TableCell>
+                  {attribute.card_order === null ? (
+                    <span className="text-muted-foreground">Não exibe</span>
+                  ) : (
+                    <Badge variant="secondary">
+                      Posição {attribute.card_order}
+                    </Badge>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   <Button
                     variant="ghost"
@@ -108,6 +123,7 @@ export function AttributesPage() {
       <AttributeFormDialog
         open={dialogOpen}
         attribute={editing}
+        attributes={attributes.data ?? []}
         onOpenChange={setDialogOpen}
       />
       <ConfirmDialog

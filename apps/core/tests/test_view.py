@@ -4,8 +4,9 @@ import json
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.http import HttpResponse
 from django.test import Client, TestCase
-from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 _BASE = "/api/v1"
 
@@ -181,6 +182,7 @@ class CoreAuthenticatedUserInfoView(TestCase):
                 "first_name": "John",
                 "last_name": "Doe",
                 "email": "testuser@example.com",
+                "is_staff": False,
             },
         )
 
@@ -457,3 +459,92 @@ class CoreAuthenticatedUserChangeNameView(TestCase):
                 )
 
                 self.assertEqual(response_change_name.status_code, 400)
+
+
+class CoreSessionTokensView(TestCase):
+    """Tests for refresh tokens, rotation and logout."""
+
+    def setUp(self) -> None:
+        self.client = Client()
+        get_user_model().objects.create_user(
+            username="testuser", password="testpass"
+        )
+
+    def _login(self) -> dict[str, str]:
+        """Log in and return the tokens of the response."""
+        response = self.client.post(
+            f"{_BASE}/auth/login/",
+            json.dumps({"username": "testuser", "password": "testpass"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        return response.json()
+
+    def _post(self, path: str, body: object) -> HttpResponse:
+        """Send a JSON POST without authentication."""
+        return self.client.post(
+            f"{_BASE}{path}", json.dumps(body), content_type="application/json"
+        )
+
+    def test_login_returns_refresh_token(self) -> None:
+        """Return both tokens on login."""
+        tokens = self._login()
+
+        self.assertIn("token", tokens)
+        self.assertIn("refresh", tokens)
+
+    def test_refresh_rotates_and_invalidates_the_old_token(self) -> None:
+        """Issue new tokens and reject the refresh token already used."""
+        tokens = self._login()
+
+        refreshed = self._post(
+            "/auth/refresh/", {"refresh": tokens["refresh"]}
+        )
+
+        self.assertEqual(refreshed.status_code, 200)
+        body = refreshed.json()
+        self.assertNotEqual(body["refresh"], tokens["refresh"])
+        me = self.client.get(
+            f"{_BASE}/auth/me/", HTTP_AUTHORIZATION=f"Bearer {body['access']}"
+        )
+        self.assertEqual(me.status_code, 200)
+        reused = self._post("/auth/refresh/", {"refresh": tokens["refresh"]})
+        self.assertEqual(reused.status_code, 401)
+
+    def test_refresh_invalid_requests(self) -> None:
+        """Return 400 without token and 401 for an invalid one."""
+        self.assertEqual(self._post("/auth/refresh/", {}).status_code, 400)
+        self.assertEqual(
+            self._post("/auth/refresh/", {"refresh": "invalid"}).status_code,
+            401,
+        )
+
+    def test_logout_invalidates_the_refresh_token(self) -> None:
+        """Reject the refresh token after logout."""
+        tokens = self._login()
+
+        logout = self._post("/auth/logout/", {"refresh": tokens["refresh"]})
+
+        self.assertEqual(logout.status_code, 200)
+        refreshed = self._post(
+            "/auth/refresh/", {"refresh": tokens["refresh"]}
+        )
+        self.assertEqual(refreshed.status_code, 401)
+
+    def test_logout_invalid_requests(self) -> None:
+        """Return 400 without token and 401 for an invalid one."""
+        self.assertEqual(self._post("/auth/logout/", {}).status_code, 400)
+        self.assertEqual(
+            self._post("/auth/logout/", {"refresh": "invalid"}).status_code,
+            401,
+        )
+
+    def test_token_lifetimes_follow_the_settings(self) -> None:
+        """Use 15 minutes for access and 7 days for refresh by default."""
+        tokens = self._login()
+
+        access = AccessToken(tokens["token"])
+        refresh = RefreshToken(tokens["refresh"])
+
+        self.assertEqual(access["exp"] - access["iat"], 15 * 60)
+        self.assertEqual(refresh["exp"] - refresh["iat"], 7 * 24 * 60 * 60)

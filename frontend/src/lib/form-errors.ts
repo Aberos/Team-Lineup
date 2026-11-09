@@ -45,3 +45,17 @@ export function applyApiErrors<T extends FieldValues>(
     setError("root", { message: detail ?? DEFAULT_MESSAGE })
   }
 }
+
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  const body = error instanceof ApiError ? error.body : null
+  if (!isErrorBody(body)) {
+    return fallback
+  }
+  for (const value of Object.values(body)) {
+    const message = firstMessage(value)
+    if (message !== null) {
+      return message
+    }
+  }
+  return fallback
+}
